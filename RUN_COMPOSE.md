@@ -1,114 +1,91 @@
-# RUN_COMPOSE.md – Hướng dẫn chạy Lab 05
+# Run Lab 05 Core Business Stack
 
-Tài liệu này hướng dẫn người khác clone repo sạch và chạy lại stack Compose của Lab 05.
+## Architecture
 
----
-
-## 1. Clone repo
-
-```bash
-git clone <repo-url>
-cd FIT4110_lab05_docker_compose_readiness
+```text
+Access Gate / Newman
+        |
+        v
+Core Business API :8000
+   |             |
+   v             v
+PostgreSQL     Audit service :9000
+decisions      policy.decision.created
+alerts         alert.created
 ```
 
----
+All containers communicate on `team-core-internal`.
 
-## 2. Cài dependencies cho Newman/Prism/Spectral (tuỳ chọn)
-
-```bash
-npm install
-```
-
----
-
-## 3. Build & chạy stack Docker Compose
+## Start
 
 ```bash
-# Copy .env.example sang .env và chỉnh sửa nếu cần
 cp .env.example .env
-
-# Build images (nếu chưa có) và khởi động các container trong nền
-docker compose up -d --build
+npm install
+npm run lint:openapi
+docker compose up -d --build --wait
+docker compose ps
 ```
 
-Lệnh trên sẽ tạo các container:
+Windows PowerShell:
 
-- `fit4110-db-lab05` (PostgreSQL)
-- `fit4110-ai-lab05` (AI service mẫu chạy port 9000)
-- `fit4110-api-lab05` (API FastAPI trên port 8000)
-
-Theo dõi log:
-
-```bash
-docker compose logs -f
+```powershell
+Copy-Item .env.example .env
+npm install
+npm run lint:openapi
+docker compose up -d --build --wait
+docker compose ps
 ```
 
-Sau vài giây, kiểm tra health của mỗi service:
+## Readiness checks
 
 ```bash
-# API
 curl http://localhost:8000/health
-
-# AI service
 curl http://localhost:9000/health
-
-# DB readiness
-docker exec -it fit4110-db-lab05 pg_isready -U $POSTGRES_USER
+docker compose exec -T db pg_isready -U lab05 -d coredb
 ```
 
-Bạn cũng có thể truy cập endpoint `/predict` của AI service để xem kết quả mẫu:
+Expected containers:
 
-```bash
-curl -X POST http://localhost:9000/predict
-```
+- `fit4110-core-api-lab05`
+- `fit4110-core-audit-lab05`
+- `fit4110-db-lab05`
 
----
-
-## 4. Chạy Newman test trên stack Compose (tuỳ chọn)
+## End-to-end test
 
 ```bash
 npm run test:compose
+curl http://localhost:9000/events
+docker compose exec -T db psql -U lab05 -d coredb \
+  -c "SELECT COUNT(*) FROM decisions; SELECT COUNT(*) FROM alerts;"
 ```
 
-Report sinh tại:
+Expected Newman result: 12 requests, 35 assertions, 0 failures.
 
-```text
-reports/newman-lab05-compose.xml
-reports/newman-lab05-compose.html
-```
+## Configuration
 
----
+- API token comes from `AUTH_TOKEN`.
+- Database credentials come from `POSTGRES_*`.
+- API reaches PostgreSQL through hostname `db`.
+- API reaches the audit integration through `http://audit-service:9000`.
+- `.env` is local-only; only `.env.example` is committed.
 
-## 5. Dừng stack
+## Image tags
 
-Khi không cần nữa, dừng và xoá các container bằng:
+- `fit4110/core-business:v0.1.0-team-core`
+- `fit4110/core-audit:v0.1.0-team-core`
+- `postgres:15-alpine`
+
+## Optional class network
+
+For plug-a-thon, create or join the lecturer-provided `class-net`, then attach
+the API without changing the internal dependency network:
 
 ```bash
-docker compose down
+docker network connect class-net fit4110-core-api-lab05
 ```
 
-Nếu muốn xoá volume dữ liệu của DB, thêm tuỳ chọn `-v`:
+## Stop
 
 ```bash
 docker compose down -v
 ```
-
----
-
-## 6. Lệnh nhanh
-
-Bạn có thể dùng Makefile:
-
-```bash
-make compose-up
-make compose-down
-make logs
-```
-
----
-
-## 7. Mẹo gỡ lỗi
-
-- Sử dụng `docker compose ps` để xem trạng thái container.
-- Nếu API trả lỗi kết nối DB, hãy kiểm tra biến môi trường `POSTGRES_*` trong `.env` và đảm bảo DB đã sẵn sàng (`pg_isready`).
-- Nếu AI service cần tải mô hình lớn, tăng `start_period` của healthcheck trong `docker-compose.yml`.

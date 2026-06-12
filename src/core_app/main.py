@@ -1,0 +1,563 @@
+import json
+import os
+import time
+from datetime import datetime, timedelta, timezone
+from enum import Enum
+from typing import Any
+from uuid import UUID, uuid4
+
+import httpx
+import psycopg
+from fastapi import Depends, FastAPI, Header, Query, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+
+
+SERVICE_NAME = os.getenv("SERVICE_NAME", "core-business")
+SERVICE_VERSION = os.getenv("SERVICE_VERSION", "1.0.0")
+AUTH_TOKEN = os.getenv("AUTH_TOKEN", "lab-core-token")
+DECISION_TTL_SECONDS = int(os.getenv("ACCESS_DECISION_TTL_SECONDS", "30"))
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://lab05:lab05pass@db:5432/coredb",
+)
+AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://audit-service:9000")
+
+ACCESS_POLICY_ID = "7e34be8b-1da8-483e-b5ae-28f8662d0ac7"
+SENSOR_POLICY_ID = "98ae19f6-13f6-4cc5-aa8f-3b76cb8c68ec"
+DETECTION_POLICY_ID = "26a2f3c5-32ce-4c1d-b66e-d3e6a900989e"
+
+
+app = FastAPI(
+    title="Smart Campus Core Business Policy API",
+    version=SERVICE_VERSION,
+    description="Policy evaluation for access, sensor, and AI Vision events.",
+)
+
+
+class ProblemError(Exception):
+    def __init__(self, status_code: int, title: str, detail: str, problem_type: str):
+        self.status_code = status_code
+        self.title = title
+        self.detail = detail
+        self.problem_type = problem_type
+
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def iso(value: datetime) -> str:
+    return value.isoformat().replace("+00:00", "Z")
+
+
+def trace_id(request: Request) -> str:
+    candidate = request.headers.get("X-Correlation-Id")
+    try:
+        return str(UUID(candidate)) if candidate else str(uuid4())
+    except ValueError:
+        return str(uuid4())
+
+
+def problem_response(
+    request: Request,
+    status_code: int,
+    title: str,
+    detail: str,
+    problem_type: str,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        media_type="application/problem+json",
+        content={
+            "type": f"https://smart-campus.example/problems/{problem_type}",
+            "title": title,
+            "status": status_code,
+            "detail": detail,
+            "instance": request.url.path,
+            "traceId": trace_id(request),
+        },
+    )
+
+
+@app.exception_handler(ProblemError)
+async def handle_problem(request: Request, exc: ProblemError) -> JSONResponse:
+    return problem_response(
+        request,
+        exc.status_code,
+        exc.title,
+        exc.detail,
+        exc.problem_type,
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def handle_validation(request: Request, exc: RequestValidationError) -> JSONResponse:
+    first_error = exc.errors()[0] if exc.errors() else {}
+    location = ".".join(str(part) for part in first_error.get("loc", []))
+    message = first_error.get("msg", "Request does not match the contract.")
+    detail = f"{location}: {message}" if location else message
+    return problem_response(
+        request,
+        422,
+        "Unprocessable Entity",
+        detail,
+        "validation-error",
+    )
+
+
+def require_auth(authorization: str | None = Header(default=None)) -> None:
+    if authorization != f"Bearer {AUTH_TOKEN}":
+        raise ProblemError(
+            401,
+            "Unauthorized",
+            "A valid bearer token is required.",
+            "unauthorized",
+        )
+
+
+class Direction(str, Enum):
+    ENTRY = "ENTRY"
+    EXIT = "EXIT"
+
+
+class Role(str, Enum):
+    STUDENT = "STUDENT"
+    STAFF = "STAFF"
+    SECURITY = "SECURITY"
+    VISITOR = "VISITOR"
+
+
+class CardStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    EXPIRED = "EXPIRED"
+    REVOKED = "REVOKED"
+    SUSPENDED = "SUSPENDED"
+
+
+class AccessSubject(BaseModel):
+    subjectId: str = Field(min_length=3, max_length=64)
+    role: Role
+    cardStatus: CardStatus
+    zone: str = Field(min_length=2, max_length=32)
+
+
+class AccessEvaluationRequest(BaseModel):
+    requestId: UUID
+    cardId: str = Field(pattern=r"^CARD-[A-Z0-9]{6,20}$")
+    gateId: str = Field(pattern=r"^GATE-[A-Z0-9-]{2,20}$")
+    direction: Direction
+    occurredAt: datetime
+    subject: AccessSubject
+
+
+class SensorMetric(str, Enum):
+    TEMPERATURE = "TEMPERATURE"
+    HUMIDITY = "HUMIDITY"
+    SMOKE = "SMOKE"
+    CO2 = "CO2"
+
+
+class SensorUnit(str, Enum):
+    CELSIUS = "CELSIUS"
+    PERCENT = "PERCENT"
+    PPM = "PPM"
+    BOOLEAN = "BOOLEAN"
+
+
+class SensorEvaluationRequest(BaseModel):
+    requestId: UUID
+    deviceId: str = Field(pattern=r"^SENSOR-[A-Z0-9-]{2,24}$")
+    metric: SensorMetric
+    value: float = Field(ge=-100, le=10000)
+    unit: SensorUnit
+    occurredAt: datetime
+
+
+class DetectionLabel(str, Enum):
+    AUTHORIZED_PERSON = "AUTHORIZED_PERSON"
+    UNKNOWN_PERSON = "UNKNOWN_PERSON"
+    CROWD = "CROWD"
+    FIRE = "FIRE"
+    SMOKE = "SMOKE"
+
+
+class DetectionEvaluationRequest(BaseModel):
+    requestId: UUID
+    detectionId: UUID
+    cameraId: str = Field(pattern=r"^CAMERA-[A-Z0-9-]{2,24}$")
+    label: DetectionLabel
+    confidence: float = Field(ge=0, le=1)
+    occurredAt: datetime
+
+
+class PolicyCreateRequest(BaseModel):
+    name: str = Field(min_length=3, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+    priority: int = Field(ge=1, le=1000)
+    active: bool
+    rules: list[dict[str, Any]] = Field(min_length=1, max_length=20)
+
+
+policies: dict[str, dict[str, Any]] = {
+    ACCESS_POLICY_ID: {
+        "policyId": ACCESS_POLICY_ID,
+        "name": "Staff office-hours access",
+        "description": "Allow active staff cards during office hours.",
+        "priority": 100,
+        "active": True,
+        "version": 1,
+        "createdAt": "2026-05-19T08:00:00Z",
+        "rules": [
+            {"ruleType": "ROLE", "allowedRoles": ["STAFF", "SECURITY"]},
+            {
+                "ruleType": "TIME_WINDOW",
+                "timezone": "Asia/Ho_Chi_Minh",
+                "start": "06:00",
+                "end": "22:00",
+            },
+        ],
+    }
+}
+decisions: dict[str, dict[str, Any]] = {}
+alerts: list[dict[str, Any]] = []
+idempotency_results: dict[str, dict[str, Any]] = {}
+
+
+def db_connection() -> psycopg.Connection:
+    return psycopg.connect(DATABASE_URL, autocommit=True)
+
+
+def init_database() -> None:
+    last_error: Exception | None = None
+    for _ in range(30):
+        try:
+            with db_connection() as connection:
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS decisions (
+                        decision_id UUID PRIMARY KEY,
+                        payload JSONB NOT NULL,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                    """
+                )
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS alerts (
+                        alert_id UUID PRIMARY KEY,
+                        payload JSONB NOT NULL,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                    """
+                )
+            return
+        except Exception as exc:
+            last_error = exc
+            time.sleep(1)
+    raise RuntimeError(f"Database initialization failed: {last_error}")
+
+
+@app.on_event("startup")
+def startup() -> None:
+    init_database()
+
+
+def persist_decision(result: dict[str, Any]) -> None:
+    with db_connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO decisions (decision_id, payload)
+            VALUES (%s, %s::jsonb)
+            ON CONFLICT (decision_id) DO UPDATE SET payload = EXCLUDED.payload
+            """,
+            (result["decisionId"], json.dumps(result)),
+        )
+
+
+def persist_alert(alert: dict[str, Any]) -> None:
+    with db_connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO alerts (alert_id, payload)
+            VALUES (%s, %s::jsonb)
+            ON CONFLICT (alert_id) DO UPDATE SET payload = EXCLUDED.payload
+            """,
+            (alert["alertId"], json.dumps(alert)),
+        )
+
+
+def publish_audit_event(event: dict[str, Any]) -> None:
+    try:
+        httpx.post(f"{AUDIT_SERVICE_URL}/events", json=event, timeout=2).raise_for_status()
+    except httpx.HTTPError:
+        # The database remains the source of truth; the event can be replayed later.
+        pass
+
+
+def dependencies_ready() -> bool:
+    try:
+        with db_connection() as connection:
+            connection.execute("SELECT 1").fetchone()
+        response = httpx.get(f"{AUDIT_SERVICE_URL}/health", timeout=2)
+        return response.status_code == 200
+    except (psycopg.Error, httpx.HTTPError):
+        return False
+
+
+def create_alert(decision_id: str, severity: str, message: str) -> str:
+    alert_id = str(uuid4())
+    alert = {
+        "alertId": alert_id,
+        "decisionId": decision_id,
+        "severity": severity,
+        "status": "OPEN",
+        "message": message,
+        "createdAt": iso(utc_now()),
+    }
+    alerts.append(alert)
+    persist_alert(alert)
+    publish_audit_event({"eventType": "alert.created", "payload": alert})
+    return alert_id
+
+
+def cached(idempotency_key: str | None) -> dict[str, Any] | None:
+    return idempotency_results.get(idempotency_key) if idempotency_key else None
+
+
+def remember(idempotency_key: str | None, result: dict[str, Any]) -> None:
+    if idempotency_key:
+        idempotency_results[idempotency_key] = result
+
+
+@app.get("/health", tags=["Health"])
+def health() -> dict[str, str]:
+    if not dependencies_ready():
+        raise ProblemError(
+            503,
+            "Service Unavailable",
+            "Database or audit service is not ready.",
+            "dependency-unavailable",
+        )
+    return {
+        "status": "ok",
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "policyStore": "ready",
+    }
+
+
+@app.post(
+    "/policies/evaluate-access",
+    tags=["Policies"],
+    dependencies=[Depends(require_auth)],
+)
+def evaluate_access(
+    payload: AccessEvaluationRequest,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    correlation_id: str | None = Header(default=None, alias="X-Correlation-Id"),
+) -> dict[str, Any]:
+    previous = cached(idempotency_key)
+    if previous:
+        return previous
+
+    status_reason = {
+        CardStatus.EXPIRED: "POLICY_DENY_EXPIRED_CARD",
+        CardStatus.REVOKED: "POLICY_DENY_REVOKED",
+        CardStatus.SUSPENDED: "POLICY_DENY_SUSPENDED",
+    }
+    if payload.subject.cardStatus != CardStatus.ACTIVE:
+        decision = "DENY"
+        reason = status_reason[payload.subject.cardStatus]
+        explanation = f"Card status is {payload.subject.cardStatus.value}."
+    elif payload.subject.role not in {Role.STAFF, Role.SECURITY}:
+        decision = "DENY"
+        reason = "POLICY_DENY_ROLE"
+        explanation = f"Role {payload.subject.role.value} is not allowed."
+    elif payload.subject.zone != "ADMIN":
+        decision = "DENY"
+        reason = "POLICY_DENY_ZONE"
+        explanation = f"Zone {payload.subject.zone} is not allowed."
+    else:
+        decision = "ALLOW"
+        reason = "POLICY_ALLOW"
+        explanation = "Active staff card is allowed in ADMIN zone."
+
+    now = utc_now()
+    decision_id = str(uuid4())
+    result = {
+        "decisionId": decision_id,
+        "requestId": str(payload.requestId),
+        "decision": decision,
+        "reasonCode": reason,
+        "policyId": ACCESS_POLICY_ID,
+        "evaluatedAt": iso(now),
+        "expiresAt": iso(now + timedelta(seconds=DECISION_TTL_SECONDS))
+        if decision == "ALLOW"
+        else None,
+        "correlationId": correlation_id or str(uuid4()),
+        "explanation": explanation,
+    }
+    decisions[decision_id] = result
+    persist_decision(result)
+    publish_audit_event({"eventType": "policy.decision.created", "payload": result})
+    if decision == "DENY":
+        create_alert(
+            decision_id,
+            "HIGH",
+            f"{payload.cardId} denied at {payload.gateId}: {reason}",
+        )
+    remember(idempotency_key, result)
+    return result
+
+
+@app.post(
+    "/policies/evaluate-sensor",
+    tags=["Policies"],
+    dependencies=[Depends(require_auth)],
+)
+def evaluate_sensor(
+    payload: SensorEvaluationRequest,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    previous = cached(idempotency_key)
+    if previous:
+        return previous
+
+    if payload.metric == SensorMetric.SMOKE and payload.value > 0:
+        outcome, reason = "ALERT", "SENSOR_THRESHOLD_CRITICAL"
+    elif payload.metric == SensorMetric.TEMPERATURE and payload.value >= 40:
+        outcome, reason = "ALERT", "SENSOR_THRESHOLD_CRITICAL"
+    elif payload.metric == SensorMetric.TEMPERATURE and payload.value >= 35:
+        outcome, reason = "WARNING", "SENSOR_THRESHOLD_WARNING"
+    else:
+        outcome, reason = "NORMAL", "SENSOR_NORMAL"
+
+    decision_id = str(uuid4())
+    alert_id = (
+        create_alert(
+            decision_id,
+            "CRITICAL" if outcome == "ALERT" else "MEDIUM",
+            f"{payload.metric.value} policy outcome {outcome} for {payload.deviceId}.",
+        )
+        if outcome != "NORMAL"
+        else None
+    )
+    result = {
+        "decisionId": decision_id,
+        "requestId": str(payload.requestId),
+        "outcome": outcome,
+        "reasonCode": reason,
+        "policyId": SENSOR_POLICY_ID,
+        "alertId": alert_id,
+        "evaluatedAt": iso(utc_now()),
+    }
+    decisions[decision_id] = result
+    persist_decision(result)
+    publish_audit_event({"eventType": "policy.decision.created", "payload": result})
+    remember(idempotency_key, result)
+    return result
+
+
+@app.post(
+    "/policies/evaluate-detection",
+    tags=["Policies"],
+    dependencies=[Depends(require_auth)],
+)
+def evaluate_detection(
+    payload: DetectionEvaluationRequest,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    previous = cached(idempotency_key)
+    if previous:
+        return previous
+
+    if payload.label in {DetectionLabel.FIRE, DetectionLabel.SMOKE}:
+        outcome, reason = "ALERT", "HAZARD_DETECTED"
+    elif payload.label == DetectionLabel.UNKNOWN_PERSON and payload.confidence >= 0.8:
+        outcome, reason = "ALERT", "UNKNOWN_PERSON_HIGH_CONFIDENCE"
+    elif payload.label == DetectionLabel.CROWD and payload.confidence >= 0.8:
+        outcome, reason = "REVIEW", "CROWD_DETECTED"
+    elif payload.label == DetectionLabel.AUTHORIZED_PERSON:
+        outcome, reason = "IGNORE", "AUTHORIZED_PERSON"
+    else:
+        outcome, reason = "IGNORE", "LOW_CONFIDENCE"
+
+    decision_id = str(uuid4())
+    alert_id = (
+        create_alert(
+            decision_id,
+            "HIGH",
+            f"{payload.label.value} detected by {payload.cameraId}.",
+        )
+        if outcome == "ALERT"
+        else None
+    )
+    result = {
+        "decisionId": decision_id,
+        "requestId": str(payload.requestId),
+        "outcome": outcome,
+        "reasonCode": reason,
+        "policyId": DETECTION_POLICY_ID,
+        "alertId": alert_id,
+        "evaluatedAt": iso(utc_now()),
+    }
+    decisions[decision_id] = result
+    persist_decision(result)
+    publish_audit_event({"eventType": "policy.decision.created", "payload": result})
+    remember(idempotency_key, result)
+    return result
+
+
+@app.post("/policies", status_code=201, tags=["Policies"], dependencies=[Depends(require_auth)])
+def create_policy(payload: PolicyCreateRequest) -> dict[str, Any]:
+    policy_id = str(uuid4())
+    policy = {
+        "policyId": policy_id,
+        **payload.model_dump(),
+        "version": 1,
+        "createdAt": iso(utc_now()),
+    }
+    policies[policy_id] = policy
+    return policy
+
+
+@app.get("/policies", tags=["Policies"], dependencies=[Depends(require_auth)])
+def list_policies(
+    active: bool | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+) -> dict[str, Any]:
+    items = list(policies.values())
+    if active is not None:
+        items = [item for item in items if item["active"] is active]
+    items = items[:limit]
+    return {"items": items, "count": len(items)}
+
+
+@app.get("/policies/{policy_id}", tags=["Policies"], dependencies=[Depends(require_auth)])
+def get_policy(policy_id: UUID) -> dict[str, Any]:
+    policy = policies.get(str(policy_id))
+    if not policy:
+        raise ProblemError(404, "Resource not found", "Policy does not exist.", "not-found")
+    return policy
+
+
+@app.get("/decisions/{decision_id}", tags=["Decisions"], dependencies=[Depends(require_auth)])
+def get_decision(decision_id: UUID) -> dict[str, Any]:
+    decision = decisions.get(str(decision_id))
+    if not decision:
+        raise ProblemError(404, "Resource not found", "Decision does not exist.", "not-found")
+    return decision
+
+
+@app.get("/alerts", tags=["Alerts"], dependencies=[Depends(require_auth)])
+def list_alerts(
+    status: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+) -> dict[str, Any]:
+    items = alerts
+    if status:
+        items = [item for item in items if item["status"] == status]
+    items = list(reversed(items))[:limit]
+    return {"items": items, "count": len(items)}

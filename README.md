@@ -1,5 +1,17 @@
 # FIT4110_lab05_docker_compose_readiness
 
+## Bai nop Team Core
+
+Repo da duoc chuyen thanh stack **Core Business Policy Engine** gom:
+
+- `api`: danh gia access/sensor/detection, auth va Problem Details.
+- `db`: PostgreSQL luu decisions va alerts.
+- `audit-service`: nhan `policy.decision.created` va `alert.created`.
+- Hai service Python chay non-root; ca ba container co healthcheck.
+- Newman end-to-end: 12 requests, 35 assertions, 0 failures.
+
+Huong dan chay lai nam trong `RUN_COMPOSE.md`; evidence nam trong `reports/`.
+
 **Học phần:** FIT4110 – Dịch vụ kết nối và Công nghệ nền tảng  
 **Buổi 5:** Điều phối đa dịch vụ với Docker Compose, readiness & AI service  
 **Case study:** Smart Campus Operations Platform  

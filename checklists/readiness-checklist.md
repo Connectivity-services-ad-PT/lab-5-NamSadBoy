@@ -1,16 +1,15 @@
-# Readiness Checklist – Lab 05
+# Readiness Checklist - Lab 05 Team Core
 
-Đây là danh sách kiểm tra (checklist) để đảm bảo stack Docker Compose của bạn đã sẵn sàng trước khi gửi bài. Hãy tick vào mỗi mục sau khi hoàn thành.
+- [x] **Database ready:** PostgreSQL is healthy and `pg_isready -U lab05 -d coredb` passes.
+- [x] **Audit service ready:** `GET :9000/health` returns 200 and accepted events are visible at `/events`.
+- [x] **API ready:** `GET :8000/health` returns 200 only when DB and audit service are reachable.
+- [x] **End-to-end policy flow:** access, sensor, and detection decisions are persisted; denied/critical outcomes create alerts.
+- [x] **Environment variables:** API token, ports, service version, DB credentials and dependency URLs are externalized.
+- [x] **Network and dependency order:** all services use `team-core-internal`; API waits for healthy DB and audit service.
+- [x] **Non-root images:** API and audit service run with `appuser`.
+- [x] **Image tags:** Core API and audit service use `v0.1.0-team-core`.
+- [x] **Automated tests:** Newman report contains 12 requests and 35 passing assertions.
+- [x] **Evidence:** health, DB counts, audit events, Compose status/logs and reports are stored in `reports/`.
 
-- [ ] **Database ready:** container DB đã chạy và phản hồi `pg_isready`. Kiểm tra bằng `docker exec -it fit4110-db-lab05 pg_isready -U $POSTGRES_USER`.
-- [ ] **AI service ready:** container AI service trả về `200` cho endpoint `/health` và `/predict` hoạt động.
-- [ ] **API ready:** container API trả `200` cho `/health` và có thể tạo/lấy readings khi token hợp lệ.
-- [ ] **Environment variables:** `.env` đã được thiết lập đúng (APP_PORT, POSTGRES_USER, AUTH_TOKEN,…). Không sử dụng secret thật; lưu secret vào `.env` cục bộ, commit `.env.example`.
-- [ ] **Network & Ports:** mạng `team-internal` hoạt động; API gọi được AI bằng hostname `ai-service`; ports 8000 (API), 9000 (AI) và 5432 (DB) được map đúng.
-- [ ] **Image tags:** bạn đã build image với tag `v0.1.0-<team>` và push lên registry (ghcr.io hoặc Docker Hub). Xác nhận rằng tag xuất hiện trong registry.
-
-Ghi chú thêm những vấn đề gặp phải hoặc điều chỉnh tại đây:
-
-```
-- Mô tả…
-```
+Known limitation: registry publication depends on the linked registry credentials;
+the reproducible local tags and GitHub Actions build remain available.

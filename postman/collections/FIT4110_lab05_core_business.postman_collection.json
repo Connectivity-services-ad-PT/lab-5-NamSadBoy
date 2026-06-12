@@ -1,0 +1,374 @@
+{
+  "info": {
+    "_postman_id": "db389ef3-866c-4fd0-977e-581b6e2f302e",
+    "name": "FIT4110 Lab03 - Core Business Policy Contract",
+    "description": "Provider and consumer contract tests for Pair 10 Access Gate -> Core Business.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('Response time is below 1500 ms', function () {",
+          "  pm.expect(pm.response.responseTime).to.be.below(1500);",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Health is public",
+      "request": {
+        "auth": {"type": "noauth"},
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/health",
+        "description": "Functional smoke test for orchestration."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Health returns 200', function () { pm.response.to.have.status(200); });",
+              "const body = pm.response.json();",
+              "pm.test('Health shape is valid', function () {",
+              "  pm.expect(body.status).to.eql('ok');",
+              "  pm.expect(body.service).to.eql('core-business');",
+              "  pm.expect(body.version).to.match(/^\\d+\\.\\d+\\.\\d+$/);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Evaluate active staff access",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"},
+          {"key": "Idempotency-Key", "value": "lab03-eval-0001"},
+          {"key": "X-Correlation-Id", "value": "{{correlationId}}"}
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"requestId\": \"1b8a6f7f-f27e-4b98-b884-22fb705ec587\",\n  \"cardId\": \"CARD-000123\",\n  \"gateId\": \"GATE-A1\",\n  \"direction\": \"ENTRY\",\n  \"occurredAt\": \"2026-05-19T08:15:00Z\",\n  \"subject\": {\n    \"subjectId\": \"EMP-0007\",\n    \"role\": \"STAFF\",\n    \"cardStatus\": \"ACTIVE\",\n    \"zone\": \"ADMIN\"\n  }\n}"
+        },
+        "url": "{{baseUrl}}/policies/evaluate-access"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Evaluate returns 200', function () { pm.response.to.have.status(200); });",
+              "const body = pm.response.json();",
+              "pm.test('ALLOW decision follows contract', function () {",
+              "  pm.expect(body.decision).to.eql('ALLOW');",
+              "  pm.expect(body.reasonCode).to.eql('POLICY_ALLOW');",
+              "  pm.expect(body.decisionId).to.match(/^[0-9a-f-]{36}$/);",
+              "  pm.expect(body.policyId).to.match(/^[0-9a-f-]{36}$/);",
+              "});",
+              "pm.environment.set('firstDecisionId', body.decisionId);",
+              "pm.environment.set('decisionId', body.decisionId);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Idempotent retry returns same decision",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"},
+          {"key": "Idempotency-Key", "value": "lab03-eval-0001"},
+          {"key": "X-Correlation-Id", "value": "{{correlationId}}"}
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"requestId\": \"1b8a6f7f-f27e-4b98-b884-22fb705ec587\",\n  \"cardId\": \"CARD-000123\",\n  \"gateId\": \"GATE-A1\",\n  \"direction\": \"ENTRY\",\n  \"occurredAt\": \"2026-05-19T08:15:00Z\",\n  \"subject\": {\n    \"subjectId\": \"EMP-0007\",\n    \"role\": \"STAFF\",\n    \"cardStatus\": \"ACTIVE\",\n    \"zone\": \"ADMIN\"\n  }\n}"
+        },
+        "url": "{{baseUrl}}/policies/evaluate-access"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Retry returns 200', function () { pm.response.to.have.status(200); });",
+              "const body = pm.response.json();",
+              "pm.test('Decision id is stable', function () {",
+              "  pm.expect(body.decisionId).to.eql(pm.environment.get('firstDecisionId'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Revoked card is denied",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"},
+          {"key": "Prefer", "value": "example=denied"},
+          {"key": "Idempotency-Key", "value": "lab03-eval-0002"}
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"requestId\": \"2518a62b-591f-4140-843d-9b63fc434b45\",\n  \"cardId\": \"CARD-000124\",\n  \"gateId\": \"GATE-A1\",\n  \"direction\": \"ENTRY\",\n  \"occurredAt\": \"2026-05-19T08:16:00Z\",\n  \"subject\": {\n    \"subjectId\": \"EMP-0008\",\n    \"role\": \"STAFF\",\n    \"cardStatus\": \"REVOKED\",\n    \"zone\": \"ADMIN\"\n  }\n}"
+        },
+        "url": "{{baseUrl}}/policies/evaluate-access"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Denied request returns 200', function () { pm.response.to.have.status(200); });",
+              "const body = pm.response.json();",
+              "pm.test('Revoked card is denied', function () {",
+              "  pm.expect(body.decision).to.eql('DENY');",
+              "  pm.expect(body.reasonCode).to.eql('POLICY_DENY_REVOKED');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Missing token returns Problem Details",
+      "request": {
+        "auth": {"type": "noauth"},
+        "method": "GET",
+        "header": [{"key": "Prefer", "value": "code=401"}],
+        "url": "{{baseUrl}}/policies/{{policyId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Missing token returns 401', function () { pm.response.to.have.status(401); });",
+              "const body = pm.response.json();",
+              "pm.test('Problem Details is machine readable', function () {",
+              "  pm.expect(body.status).to.eql(401);",
+              "  pm.expect(body.type.startsWith('https://')).to.eql(true);",
+              "  pm.expect(body.traceId).to.match(/^[0-9a-f-]{36}$/);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Get policy by id",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/policies/{{policyId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Policy lookup returns 200', function () { pm.response.to.have.status(200); });",
+              "const body = pm.response.json();",
+              "pm.test('Policy has polymorphic rules', function () {",
+              "  pm.expect(body.rules).to.be.an('array').that.is.not.empty;",
+              "  pm.expect(body.rules[0]).to.have.property('ruleType');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - Unknown policy returns 404",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Prefer", "value": "code=404"}],
+        "url": "{{baseUrl}}/policies/00000000-0000-4000-8000-000000000000"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Unknown policy returns 404', function () { pm.response.to.have.status(404); });",
+              "pm.test('404 body follows Problem schema', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.status).to.eql(404);",
+              "  pm.expect(body.title).to.be.a('string');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 - Invalid card id returns 422",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"},
+          {"key": "Prefer", "value": "code=422"}
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"requestId\": \"475b7f6c-c10f-4038-8d51-ff4653b42de3\",\n  \"cardId\": \"bad\",\n  \"gateId\": \"GATE-A1\",\n  \"direction\": \"ENTRY\",\n  \"occurredAt\": \"2026-05-19T08:17:00Z\",\n  \"subject\": {\n    \"subjectId\": \"EMP-0009\",\n    \"role\": \"STAFF\",\n    \"cardStatus\": \"ACTIVE\",\n    \"zone\": \"ADMIN\"\n  }\n}"
+        },
+        "url": "{{baseUrl}}/policies/evaluate-access"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Invalid card id returns 422', function () { pm.response.to.have.status(422); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 - List alerts",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/alerts?status=OPEN&limit=20"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Alerts returns 200', function () { pm.response.to.have.status(200); });",
+              "const body = pm.response.json();",
+              "pm.test('Alerts response has items and count', function () {",
+              "  pm.expect(body.items).to.be.an('array');",
+              "  pm.expect(body.count).to.be.a('number');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 - Sensor threshold creates alert",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"},
+          {"key": "Idempotency-Key", "value": "lab03-sensor-0001"}
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"requestId\": \"c95458d1-aa71-444f-82ad-a9d45337c12b\",\n  \"deviceId\": \"SENSOR-A101\",\n  \"metric\": \"TEMPERATURE\",\n  \"value\": 42.5,\n  \"unit\": \"CELSIUS\",\n  \"occurredAt\": \"2026-05-19T08:20:00Z\"\n}"
+        },
+        "url": "{{baseUrl}}/policies/evaluate-sensor"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Sensor evaluation returns 200', function () { pm.response.to.have.status(200); });",
+              "const body = pm.response.json();",
+              "pm.test('High temperature creates alert outcome', function () {",
+              "  pm.expect(body.outcome).to.eql('ALERT');",
+              "  pm.expect(body.reasonCode).to.eql('SENSOR_THRESHOLD_CRITICAL');",
+              "  pm.expect(body.alertId).to.match(/^[0-9a-f-]{36}$/);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 - Unknown person detection creates alert",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"},
+          {"key": "Idempotency-Key", "value": "lab03-detection-0001"}
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"requestId\": \"8cc9bb0d-ee85-41e5-a3fa-f4155c7286d8\",\n  \"detectionId\": \"4ec96900-37e0-47eb-9021-b95885c089d8\",\n  \"cameraId\": \"CAMERA-LOBBY-01\",\n  \"label\": \"UNKNOWN_PERSON\",\n  \"confidence\": 0.96,\n  \"occurredAt\": \"2026-05-19T08:21:00Z\"\n}"
+        },
+        "url": "{{baseUrl}}/policies/evaluate-detection"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Detection evaluation returns 200', function () { pm.response.to.have.status(200); });",
+              "const body = pm.response.json();",
+              "pm.test('Unknown person creates alert outcome', function () {",
+              "  pm.expect(body.outcome).to.eql('ALERT');",
+              "  pm.expect(body.reasonCode).to.eql('UNKNOWN_PERSON_HIGH_CONFIDENCE');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 - Create policy",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Staff office-hours access\",\n  \"description\": \"Allow active staff cards during office hours.\",\n  \"priority\": 100,\n  \"active\": true,\n  \"rules\": [\n    {\"ruleType\": \"ROLE\", \"allowedRoles\": [\"STAFF\", \"SECURITY\"]},\n    {\"ruleType\": \"TIME_WINDOW\", \"timezone\": \"Asia/Ho_Chi_Minh\", \"start\": \"06:00\", \"end\": \"22:00\"}\n  ]\n}"
+        },
+        "url": "{{baseUrl}}/policies"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Create policy returns 201', function () { pm.response.to.have.status(201); });",
+              "const body = pm.response.json();",
+              "pm.test('Created policy is versioned', function () {",
+              "  pm.expect(body.version).to.be.at.least(1);",
+              "  pm.expect(body.policyId).to.match(/^[0-9a-f-]{36}$/);",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

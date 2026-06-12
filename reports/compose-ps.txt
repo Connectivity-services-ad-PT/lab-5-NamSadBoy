@@ -1,0 +1,5 @@
+﻿NAME                       IMAGE                                    COMMAND                  SERVICE         CREATED          STATUS                    PORTS
+fit4110-core-api-lab05     fit4110/core-business:v0.1.0-team-core   "sh -c 'uvicorn core…"   api             36 seconds ago   Up 29 seconds (healthy)   0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp
+fit4110-core-audit-lab05   fit4110/core-audit:v0.1.0-team-core      "uvicorn audit_servi…"   audit-service   36 seconds ago   Up 35 seconds (healthy)   0.0.0.0:9000->9000/tcp, [::]:9000->9000/tcp
+fit4110-db-lab05           postgres:15-alpine                       "docker-entrypoint.s…"   db              36 seconds ago   Up 35 seconds (healthy)   5432/tcp
+
