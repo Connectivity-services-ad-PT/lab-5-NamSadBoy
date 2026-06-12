@@ -1,0 +1,12 @@
+Scenario: Analytics mock delays every response by 5 seconds.
+Core configuration: PARTNER_TIMEOUT_SECONDS=3, PARTNER_RETRY_COUNT=0.
+
+POST /api/v1/sensor-events
+Result: HTTP 503 Service Unavailable after approximately 3 seconds.
+Problem detail: analytics timed out after 3 seconds on attempt 1/1.
+
+Recovery check:
+DELETE http://localhost:9100/test/reset -> HTTP 200
+GET http://localhost:8000/health -> HTTP 200
+
+Automated source: newman-buoi06-integration.html and .xml, request 07.

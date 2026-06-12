@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="FIT4110 Buoi 6 - Core Business Integration" tests="9" time="3.498">
+  <testsuite name="01 - Reset partner mock" id="5b381c3a-53ba-4e72-b4ec-c39d36d0049e" timestamp="2026-06-12T20:12:39.888Z" tests="2" failures="0" errors="0" time="0.048">
+    <testcase name="Response completes within 5 seconds" time="0.048" classname="01ResetPartnerMock"/>
+    <testcase name="Partner reset returns 200" time="0.048" classname="01ResetPartnerMock"/>
+  </testsuite>
+  <testsuite name="02 - Access Gate to Core" id="eb54da46-da4f-4cc0-b18a-d28c1815269f" timestamp="2026-06-12T20:12:39.888Z" tests="3" failures="0" errors="0" time="0.080">
+    <testcase name="Response completes within 5 seconds" time="0.080" classname="02AccessGateToCore"/>
+    <testcase name="Access event returns 200" time="0.080" classname="02AccessGateToCore"/>
+    <testcase name="Access decision and delivery are correct" time="0.080" classname="02AccessGateToCore"/>
+  </testsuite>
+  <testsuite name="03 - IoT to Core with alert fan-out" id="274bf116-7ea6-4955-9615-505d5c7508b6" timestamp="2026-06-12T20:12:39.888Z" tests="3" failures="0" errors="0" time="0.126">
+    <testcase name="Response completes within 5 seconds" time="0.126" classname="03IoTToCoreWithAlertFanOut"/>
+    <testcase name="Sensor event returns 202" time="0.126" classname="03IoTToCoreWithAlertFanOut"/>
+    <testcase name="Sensor alert reaches both partners" time="0.126" classname="03IoTToCoreWithAlertFanOut"/>
+  </testsuite>
+  <testsuite name="04 - Vision to Core with alert fan-out" id="6c5a8d1b-7cae-4c8f-84a9-65a8acb73cbc" timestamp="2026-06-12T20:12:39.888Z" tests="3" failures="0" errors="0" time="0.082">
+    <testcase name="Response completes within 5 seconds" time="0.082" classname="04VisionToCoreWithAlertFanOut"/>
+    <testcase name="Detection returns 202" time="0.082" classname="04VisionToCoreWithAlertFanOut"/>
+    <testcase name="Detection alert reaches both partners" time="0.082" classname="04VisionToCoreWithAlertFanOut"/>
+  </testsuite>
+  <testsuite name="05 - Verify partner received fan-out" id="c2f4890a-5834-482a-9a12-f592d37a3522" timestamp="2026-06-12T20:12:39.888Z" tests="3" failures="0" errors="0" time="0.009">
+    <testcase name="Response completes within 5 seconds" time="0.009" classname="05VerifyPartnerReceivedFanOut"/>
+    <testcase name="Partner state returns 200" time="0.009" classname="05VerifyPartnerReceivedFanOut"/>
+    <testcase name="Analytics and Notification received events" time="0.009" classname="05VerifyPartnerReceivedFanOut"/>
+  </testsuite>
+  <testsuite name="06 - Configure slow partner" id="641617b4-ee39-4f9b-a08b-3561aa8d1a64" timestamp="2026-06-12T20:12:39.888Z" tests="2" failures="0" errors="0" time="0.015">
+    <testcase name="Response completes within 5 seconds" time="0.015" classname="06ConfigureSlowPartner"/>
+    <testcase name="Slow mode enabled" time="0.015" classname="06ConfigureSlowPartner"/>
+  </testsuite>
+  <testsuite name="07 - Core returns 503 on partner timeout" id="c1279c51-14a7-43c6-8c08-69d4c567ad34" timestamp="2026-06-12T20:12:39.888Z" tests="3" failures="0" errors="0" time="3.092">
+    <testcase name="Response completes within 5 seconds" time="3.092" classname="07CoreReturns503OnPartnerTimeout"/>
+    <testcase name="Timeout returns 503" time="3.092" classname="07CoreReturns503OnPartnerTimeout"/>
+    <testcase name="Timeout is bounded and machine readable" time="3.092" classname="07CoreReturns503OnPartnerTimeout"/>
+  </testsuite>
+  <testsuite name="08 - Restore partner mock" id="7c9d3698-31ef-48d2-bc6d-bead1c0d2c48" timestamp="2026-06-12T20:12:39.888Z" tests="2" failures="0" errors="0" time="0.009">
+    <testcase name="Response completes within 5 seconds" time="0.009" classname="08RestorePartnerMock"/>
+    <testcase name="Partner restored" time="0.009" classname="08RestorePartnerMock"/>
+  </testsuite>
+  <testsuite name="09 - Core health remains available" id="c685124f-a8d6-4573-b2d9-0bf1e45fea86" timestamp="2026-06-12T20:12:39.888Z" tests="2" failures="0" errors="0" time="0.037">
+    <testcase name="Response completes within 5 seconds" time="0.037" classname="09CoreHealthRemainsAvailable"/>
+    <testcase name="Core health returns 200" time="0.037" classname="09CoreHealthRemainsAvailable"/>
+  </testsuite>
+</testsuites>

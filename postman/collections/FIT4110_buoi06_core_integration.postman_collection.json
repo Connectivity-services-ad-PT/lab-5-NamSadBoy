@@ -1,0 +1,156 @@
+{
+  "info": {
+    "_postman_id": "694ebc58-a612-4d51-95d2-30a8508b2819",
+    "name": "FIT4110 Buoi 6 - Core Business Integration",
+    "description": "Cross-service readiness tests for IoT, Vision, Gate, Notification, and Analytics integration.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{"key": "token", "value": "{{authToken}}", "type": "string"}]
+  },
+  "event": [{
+    "listen": "test",
+    "script": {"type": "text/javascript", "exec": [
+      "pm.test('Response completes within 5 seconds', function () {",
+      "  pm.expect(pm.response.responseTime).to.be.below(5000);",
+      "});"
+    ]}
+  }],
+  "item": [
+    {
+      "name": "01 - Reset partner mock",
+      "request": {"auth": {"type": "noauth"}, "method": "DELETE", "header": [], "url": "{{partnerBaseUrl}}/test/reset"},
+      "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
+        "pm.test('Partner reset returns 200', function () { pm.response.to.have.status(200); });"
+      ]}}]
+    },
+    {
+      "name": "02 - Access Gate to Core",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"},
+          {"key": "Idempotency-Key", "value": "buoi06-access-0001"},
+          {"key": "X-Correlation-Id", "value": "{{correlationId}}"}
+        ],
+        "body": {"mode": "raw", "raw": "{\n  \"requestId\": \"40fd107d-d34a-4f48-833d-26335f6a18ec\",\n  \"cardId\": \"CARD-060001\",\n  \"gateId\": \"GATE-A1\",\n  \"direction\": \"ENTRY\",\n  \"occurredAt\": \"2026-06-13T08:00:00Z\",\n  \"subject\": {\n    \"subjectId\": \"EMP-0601\",\n    \"role\": \"STAFF\",\n    \"cardStatus\": \"ACTIVE\",\n    \"zone\": \"ADMIN\"\n  }\n}"},
+        "url": "{{baseUrl}}/api/v1/access-events"
+      },
+      "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
+        "pm.test('Access event returns 200', function () { pm.response.to.have.status(200); });",
+        "const body = pm.response.json();",
+        "pm.test('Access decision and delivery are correct', function () {",
+        "  pm.expect(body.result.decision).to.eql('ALLOW');",
+        "  pm.expect(body.deliveries.analytics.status).to.eql('accepted');",
+        "  pm.expect(body.deliveries.notification.status).to.eql('skipped');",
+        "});"
+      ]}}]
+    },
+    {
+      "name": "03 - IoT to Core with alert fan-out",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"},
+          {"key": "Idempotency-Key", "value": "buoi06-sensor-0001"},
+          {"key": "X-Correlation-Id", "value": "{{correlationId}}"}
+        ],
+        "body": {"mode": "raw", "raw": "{\n  \"requestId\": \"fd680d46-f0dd-4b32-aadf-6a0f51612251\",\n  \"deviceId\": \"SENSOR-B601\",\n  \"metric\": \"TEMPERATURE\",\n  \"value\": 42.5,\n  \"unit\": \"CELSIUS\",\n  \"occurredAt\": \"2026-06-13T08:01:00Z\"\n}"},
+        "url": "{{baseUrl}}/api/v1/sensor-events"
+      },
+      "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
+        "pm.test('Sensor event returns 202', function () { pm.response.to.have.status(202); });",
+        "const body = pm.response.json();",
+        "pm.test('Sensor alert reaches both partners', function () {",
+        "  pm.expect(body.result.outcome).to.eql('ALERT');",
+        "  pm.expect(body.deliveries.analytics.status).to.eql('accepted');",
+        "  pm.expect(body.deliveries.notification.status).to.eql('accepted');",
+        "});"
+      ]}}]
+    },
+    {
+      "name": "04 - Vision to Core with alert fan-out",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"},
+          {"key": "Idempotency-Key", "value": "buoi06-detection-0001"},
+          {"key": "X-Correlation-Id", "value": "{{correlationId}}"}
+        ],
+        "body": {"mode": "raw", "raw": "{\n  \"requestId\": \"8de888d9-a133-473e-a0d9-060af8e911af\",\n  \"detectionId\": \"8d424c77-2298-48f5-8b28-291eea122bcb\",\n  \"cameraId\": \"CAMERA-B6-01\",\n  \"label\": \"UNKNOWN_PERSON\",\n  \"confidence\": 0.96,\n  \"occurredAt\": \"2026-06-13T08:02:00Z\"\n}"},
+        "url": "{{baseUrl}}/api/v1/detections"
+      },
+      "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
+        "pm.test('Detection returns 202', function () { pm.response.to.have.status(202); });",
+        "const body = pm.response.json();",
+        "pm.test('Detection alert reaches both partners', function () {",
+        "  pm.expect(body.result.outcome).to.eql('ALERT');",
+        "  pm.expect(body.deliveries.analytics.status).to.eql('accepted');",
+        "  pm.expect(body.deliveries.notification.status).to.eql('accepted');",
+        "});"
+      ]}}]
+    },
+    {
+      "name": "05 - Verify partner received fan-out",
+      "request": {"auth": {"type": "noauth"}, "method": "GET", "header": [], "url": "{{partnerBaseUrl}}/test/received"},
+      "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
+        "pm.test('Partner state returns 200', function () { pm.response.to.have.status(200); });",
+        "const body = pm.response.json();",
+        "pm.test('Analytics and Notification received events', function () {",
+        "  pm.expect(body.analyticsCount).to.be.at.least(3);",
+        "  pm.expect(body.notificationCount).to.be.at.least(2);",
+        "});"
+      ]}}]
+    },
+    {
+      "name": "06 - Configure slow partner",
+      "request": {
+        "auth": {"type": "noauth"},
+        "method": "PUT",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\n  \"notificationStatus\": 202,\n  \"analyticsStatus\": 202,\n  \"delaySeconds\": 5\n}"},
+        "url": "{{partnerBaseUrl}}/test/mode"
+      },
+      "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
+        "pm.test('Slow mode enabled', function () { pm.response.to.have.status(200); });"
+      ]}}]
+    },
+    {
+      "name": "07 - Core returns 503 on partner timeout",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"},
+          {"key": "Idempotency-Key", "value": "buoi06-timeout-0001"}
+        ],
+        "body": {"mode": "raw", "raw": "{\n  \"requestId\": \"fa9cdb7e-c184-43ed-86ef-5ca8ca5492dc\",\n  \"deviceId\": \"SENSOR-B602\",\n  \"metric\": \"HUMIDITY\",\n  \"value\": 55,\n  \"unit\": \"PERCENT\",\n  \"occurredAt\": \"2026-06-13T08:03:00Z\"\n}"},
+        "url": "{{baseUrl}}/api/v1/sensor-events"
+      },
+      "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
+        "pm.test('Timeout returns 503', function () { pm.response.to.have.status(503); });",
+        "const body = pm.response.json();",
+        "pm.test('Timeout is bounded and machine readable', function () {",
+        "  pm.expect(pm.response.responseTime).to.be.above(2500);",
+        "  pm.expect(pm.response.responseTime).to.be.below(5000);",
+        "  pm.expect(body.status).to.eql(503);",
+        "  pm.expect(body.detail).to.include('timed out');",
+        "});"
+      ]}}]
+    },
+    {
+      "name": "08 - Restore partner mock",
+      "request": {"auth": {"type": "noauth"}, "method": "DELETE", "header": [], "url": "{{partnerBaseUrl}}/test/reset"},
+      "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
+        "pm.test('Partner restored', function () { pm.response.to.have.status(200); });"
+      ]}}]
+    },
+    {
+      "name": "09 - Core health remains available",
+      "request": {"auth": {"type": "noauth"}, "method": "GET", "header": [], "url": "{{baseUrl}}/health"},
+      "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
+        "pm.test('Core health returns 200', function () { pm.response.to.have.status(200); });"
+      ]}}]
+    }
+  ]
+}

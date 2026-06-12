@@ -5,7 +5,9 @@
   "description": "Docker Compose readiness for Core Business, PostgreSQL, and audit integration",
   "scripts": {
     "lint:openapi": "spectral lint contracts/*.yaml --ruleset campus-spectral.yaml",
-    "test:compose": "newman run postman/collections/FIT4110_lab05_core_business.postman_collection.json -e postman/environments/FIT4110_lab05_core_local.postman_environment.json -r cli,junit,htmlextra --reporter-junit-export reports/newman-lab05-compose.xml --reporter-htmlextra-export reports/newman-lab05-compose.html"
+    "test:compose": "newman run postman/collections/FIT4110_lab05_core_business.postman_collection.json -e postman/environments/FIT4110_lab05_core_local.postman_environment.json -r cli,junit,htmlextra --reporter-junit-export reports/newman-lab05-compose.xml --reporter-htmlextra-export reports/newman-lab05-compose.html",
+    "test:integration": "newman run postman/collections/FIT4110_buoi06_core_integration.postman_collection.json -e postman/environments/FIT4110_lab05_core_local.postman_environment.json -r cli,junit,htmlextra --reporter-junit-export reports/newman-buoi06-integration.xml --reporter-htmlextra-export reports/newman-buoi06-integration.html",
+    "test:all": "npm run test:compose && npm run test:integration"
   },
   "devDependencies": {
     "@stoplight/spectral-cli": "^6.13.1",

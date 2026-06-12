@@ -1,0 +1,17 @@
+{
+  "eventType": "sensor-event",
+  "status": "processed",
+  "correlationId": "80cddcc0-72e8-41da-8425-22a263f11254",
+  "result": {
+    "decisionId": "4f3dd295-96a4-4483-b956-bdf8514af304",
+    "requestId": "54863377-aad9-42db-a9ad-9f58adbc2108",
+    "outcome": "ALERT",
+    "reasonCode": "SENSOR_THRESHOLD_CRITICAL",
+    "policyId": "98ae19f6-13f6-4cc5-aa8f-3b76cb8c68ec",
+    "alertId": "62681531-c7b1-4d67-a3fb-87e021a5e1e5"
+  },
+  "deliveries": {
+    "analytics": {"provider": "analytics", "status": "accepted", "statusCode": 202},
+    "notification": {"provider": "notification", "status": "accepted", "statusCode": 202}
+  }
+}

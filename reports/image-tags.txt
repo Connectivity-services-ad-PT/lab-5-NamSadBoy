@@ -1,5 +1,9 @@
-﻿CONTAINER                  REPOSITORY              TAG                 PLATFORM            IMAGE ID            SIZE                CREATED
-fit4110-core-api-lab05     fit4110/core-business   v0.1.0-team-core    linux/amd64         fe486b7063ac        68.8MB              About a minute ago
-fit4110-core-audit-lab05   fit4110/core-audit      v0.1.0-team-core    linux/amd64         3299600cf410        68.8MB              About a minute ago
-fit4110-db-lab05           postgres                15-alpine           linux/amd64         09e4f20b14dd        109MB               5 weeks ago
+CONTAINER                      REPOSITORY                  TAG
+fit4110-core-api-lab05         fit4110/core-business       v0.1.0-team-core
+fit4110-core-audit-lab05       fit4110/core-audit          v0.1.0-team-core
+fit4110-partner-mock-lab06     fit4110/partner-mock        v0.1.0-team-core
+fit4110-db-lab05               postgres                    15-alpine
 
+Published application images:
+ghcr.io/connectivity-services-ad-pt/core-business-compose:v0.1.0-team-core
+ghcr.io/connectivity-services-ad-pt/core-audit:v0.1.0-team-core

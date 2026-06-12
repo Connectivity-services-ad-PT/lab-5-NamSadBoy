@@ -1,0 +1,4 @@
+GET http://localhost:9100/health
+HTTP 200 OK
+
+{"status":"ok","service":"partner-service-mock","version":"1.0.0"}

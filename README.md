@@ -1,5 +1,19 @@
 # FIT4110_lab05_docker_compose_readiness
 
+## Buoi 6 integration readiness
+
+The repository now also contains the Team Core integration build for Buoi 6:
+
+- `POST /api/v1/sensor-events` for IoT Ingestion.
+- `POST /api/v1/detections` for AI Vision.
+- `POST /api/v1/access-events` for Access Gate.
+- Outbound Notification and Analytics calls configured through `.env`.
+- A 3-second partner timeout returning RFC 7807 HTTP 503.
+- A local partner mock and a dedicated 9-request Newman integration suite.
+
+Start with [`BUOI_06_READINESS.md`](BUOI_06_READINESS.md) and
+[`integration-agreements/buoi06-core-integration-contracts.md`](integration-agreements/buoi06-core-integration-contracts.md).
+
 ## Bai nop Team Core
 
 Repo da duoc chuyen thanh stack **Core Business Policy Engine** gom:
@@ -7,8 +21,9 @@ Repo da duoc chuyen thanh stack **Core Business Policy Engine** gom:
 - `api`: danh gia access/sensor/detection, auth va Problem Details.
 - `db`: PostgreSQL luu decisions va alerts.
 - `audit-service`: nhan `policy.decision.created` va `alert.created`.
-- Hai service Python chay non-root; ca ba container co healthcheck.
-- Newman end-to-end: 12 requests, 35 assertions, 0 failures.
+- `partner-service`: mock Notification va Analytics de test Buoi 6 tai nha.
+- Ba service Python chay non-root; ca bon container co healthcheck.
+- Newman: Lab 5 dat 12/12 requests, Buoi 6 dat 9/9 requests.
 
 Huong dan chay lai nam trong `RUN_COMPOSE.md`; evidence nam trong `reports/`.
 

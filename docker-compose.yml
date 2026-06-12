@@ -15,6 +15,8 @@ services:
         condition: service_healthy
       audit-service:
         condition: service_healthy
+      partner-service:
+        condition: service_healthy
     ports:
       - "${APP_PORT:-8000}:8000"
     networks:
@@ -29,6 +31,39 @@ services:
       timeout: 3s
       retries: 6
       start_period: 10s
+    restart: unless-stopped
+
+  partner-service:
+    image: fit4110/partner-mock:v0.1.0-team-core
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fit4110-partner-mock-lab06
+    command:
+      - uvicorn
+      - partner_service.main:app
+      - --app-dir
+      - src
+      - --host
+      - 0.0.0.0
+      - --port
+      - "9100"
+    environment:
+      SERVICE_VERSION: ${SERVICE_VERSION}
+    ports:
+      - "${PARTNER_MOCK_PORT:-9100}:9100"
+    networks:
+      - team-internal
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:9100/health', timeout=2).read()
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 5s
     restart: unless-stopped
 
   audit-service:

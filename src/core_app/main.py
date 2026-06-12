@@ -23,6 +23,16 @@ DATABASE_URL = os.getenv(
     "postgresql://lab05:lab05pass@db:5432/coredb",
 )
 AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://audit-service:9000")
+NOTIFICATION_SERVICE_URL = os.getenv(
+    "NOTIFICATION_SERVICE_URL",
+    "http://partner-service:9100",
+).rstrip("/")
+ANALYTICS_SERVICE_URL = os.getenv(
+    "ANALYTICS_SERVICE_URL",
+    "http://partner-service:9100",
+).rstrip("/")
+PARTNER_TIMEOUT_SECONDS = float(os.getenv("PARTNER_TIMEOUT_SECONDS", "3"))
+PARTNER_RETRY_COUNT = int(os.getenv("PARTNER_RETRY_COUNT", "0"))
 
 ACCESS_POLICY_ID = "7e34be8b-1da8-483e-b5ae-28f8662d0ac7"
 SENSOR_POLICY_ID = "98ae19f6-13f6-4cc5-aa8f-3b76cb8c68ec"
@@ -331,6 +341,130 @@ def remember(idempotency_key: str | None, result: dict[str, Any]) -> None:
         idempotency_results[idempotency_key] = result
 
 
+def deliver_to_partner(
+    provider: str,
+    base_url: str,
+    path: str,
+    payload: dict[str, Any],
+    correlation_id: str,
+) -> dict[str, Any]:
+    attempts = PARTNER_RETRY_COUNT + 1
+    last_detail = "Partner service is unavailable."
+
+    for attempt in range(1, attempts + 1):
+        try:
+            response = httpx.post(
+                f"{base_url}{path}",
+                json=payload,
+                headers={"X-Correlation-Id": correlation_id},
+                timeout=PARTNER_TIMEOUT_SECONDS,
+            )
+            response.raise_for_status()
+            body = response.json() if response.content else {}
+            return {
+                "provider": provider,
+                "status": "accepted",
+                "statusCode": response.status_code,
+                "providerResponse": body,
+            }
+        except httpx.TimeoutException:
+            last_detail = (
+                f"{provider} timed out after {PARTNER_TIMEOUT_SECONDS:g} seconds "
+                f"on attempt {attempt}/{attempts}."
+            )
+        except httpx.HTTPStatusError as exc:
+            last_detail = (
+                f"{provider} returned HTTP {exc.response.status_code} "
+                f"on attempt {attempt}/{attempts}."
+            )
+        except httpx.RequestError as exc:
+            last_detail = (
+                f"Cannot connect to {provider} on attempt {attempt}/{attempts}: "
+                f"{exc.__class__.__name__}."
+            )
+
+    raise ProblemError(
+        503,
+        "Dependent service unavailable",
+        last_detail,
+        "dependency-unavailable",
+    )
+
+
+def deliver_integration_result(
+    event_type: str,
+    source_payload: BaseModel,
+    result: dict[str, Any],
+    correlation_id: str,
+) -> dict[str, Any]:
+    analytics_payload = {
+        "eventId": str(uuid4()),
+        "eventType": f"core.{event_type}.processed",
+        "source": SERVICE_NAME,
+        "occurredAt": iso(utc_now()),
+        "correlationId": correlation_id,
+        "payload": {
+            "input": source_payload.model_dump(mode="json"),
+            "result": result,
+        },
+    }
+    deliveries: dict[str, Any] = {
+        "analytics": deliver_to_partner(
+            "analytics",
+            ANALYTICS_SERVICE_URL,
+            "/api/v1/events",
+            analytics_payload,
+            correlation_id,
+        ),
+        "notification": {"provider": "notification", "status": "skipped"},
+    }
+
+    if result.get("alertId"):
+        notification_payload = {
+            "notificationId": str(uuid4()),
+            "source": SERVICE_NAME,
+            "channel": "MULTI",
+            "severity": "HIGH",
+            "title": f"Core policy alert: {event_type}",
+            "message": result.get("reasonCode", "Policy alert generated."),
+            "correlationId": correlation_id,
+            "createdAt": iso(utc_now()),
+            "metadata": {
+                "alertId": result["alertId"],
+                "decisionId": result["decisionId"],
+            },
+        }
+        deliveries["notification"] = deliver_to_partner(
+            "notification",
+            NOTIFICATION_SERVICE_URL,
+            "/api/v1/notifications",
+            notification_payload,
+            correlation_id,
+        )
+
+    return deliveries
+
+
+def integration_response(
+    event_type: str,
+    source_payload: BaseModel,
+    result: dict[str, Any],
+    correlation_id: str,
+) -> dict[str, Any]:
+    return {
+        "eventType": event_type,
+        "status": "processed",
+        "correlationId": correlation_id,
+        "result": result,
+        "deliveries": deliver_integration_result(
+            event_type,
+            source_payload,
+            result,
+            correlation_id,
+        ),
+    }
+
+
 @app.get("/health", tags=["Health"])
 def health() -> dict[str, str]:
     if not dependencies_ready():
@@ -508,6 +642,68 @@ def evaluate_detection(
     publish_audit_event({"eventType": "policy.decision.created", "payload": result})
     remember(idempotency_key, result)
     return result
+
+
+@app.post(
+    "/api/v1/access-events",
+    tags=["Integration"],
+    dependencies=[Depends(require_auth)],
+)
+def ingest_access_event(
+    payload: AccessEvaluationRequest,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    correlation_id: str | None = Header(default=None, alias="X-Correlation-Id"),
+) -> dict[str, Any]:
+    request_correlation_id = correlation_id or str(uuid4())
+    result = evaluate_access(payload, idempotency_key, request_correlation_id)
+    return integration_response(
+        "access-event",
+        payload,
+        result,
+        request_correlation_id,
+    )
+
+
+@app.post(
+    "/api/v1/sensor-events",
+    status_code=202,
+    tags=["Integration"],
+    dependencies=[Depends(require_auth)],
+)
+def ingest_sensor_event(
+    payload: SensorEvaluationRequest,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    correlation_id: str | None = Header(default=None, alias="X-Correlation-Id"),
+) -> dict[str, Any]:
+    request_correlation_id = correlation_id or str(uuid4())
+    result = evaluate_sensor(payload, idempotency_key)
+    return integration_response(
+        "sensor-event",
+        payload,
+        result,
+        request_correlation_id,
+    )
+
+
+@app.post(
+    "/api/v1/detections",
+    status_code=202,
+    tags=["Integration"],
+    dependencies=[Depends(require_auth)],
+)
+def ingest_detection_event(
+    payload: DetectionEvaluationRequest,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    correlation_id: str | None = Header(default=None, alias="X-Correlation-Id"),
+) -> dict[str, Any]:
+    request_correlation_id = correlation_id or str(uuid4())
+    result = evaluate_detection(payload, idempotency_key)
+    return integration_response(
+        "detection",
+        payload,
+        result,
+        request_correlation_id,
+    )
 
 
 @app.post("/policies", status_code=201, tags=["Policies"], dependencies=[Depends(require_auth)])

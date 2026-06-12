@@ -16,9 +16,10 @@ logs:
 	docker compose logs -f
 
 test-compose:
-	npm run test:compose
+	npm run test:all
 
 readiness:
 	docker compose ps
 	curl http://localhost:8000/health
 	curl http://localhost:9000/health
+	curl http://localhost:9100/health

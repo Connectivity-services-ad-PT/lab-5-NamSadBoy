@@ -7,11 +7,11 @@ Access Gate / Newman
         |
         v
 Core Business API :8000
-   |             |
-   v             v
-PostgreSQL     Audit service :9000
-decisions      policy.decision.created
-alerts         alert.created
+   |          |               |
+   v          v               v
+PostgreSQL  Audit :9000   Partner mock :9100
+decisions   internal log  Notification + Analytics
+alerts
 ```
 
 All containers communicate on `team-core-internal`.
@@ -41,6 +41,7 @@ docker compose ps
 ```bash
 curl http://localhost:8000/health
 curl http://localhost:9000/health
+curl http://localhost:9100/health
 docker compose exec -T db pg_isready -U lab05 -d coredb
 ```
 
@@ -48,6 +49,7 @@ Expected containers:
 
 - `fit4110-core-api-lab05`
 - `fit4110-core-audit-lab05`
+- `fit4110-partner-mock-lab06`
 - `fit4110-db-lab05`
 
 ## End-to-end test
@@ -59,7 +61,10 @@ docker compose exec -T db psql -U lab05 -d coredb \
   -c "SELECT COUNT(*) FROM decisions; SELECT COUNT(*) FROM alerts;"
 ```
 
-Expected Newman result: 12 requests, 35 assertions, 0 failures.
+Expected Newman results:
+
+- Lab 05: 12 requests, 35 assertions, 0 failures.
+- Buoi 6: 9 requests, 23 assertions, 0 failures.
 
 ## Configuration
 
@@ -67,6 +72,10 @@ Expected Newman result: 12 requests, 35 assertions, 0 failures.
 - Database credentials come from `POSTGRES_*`.
 - API reaches PostgreSQL through hostname `db`.
 - API reaches the audit integration through `http://audit-service:9000`.
+- API reads `NOTIFICATION_SERVICE_URL` and `ANALYTICS_SERVICE_URL` from `.env`.
+- At home both partner URLs point to `http://partner-service:9100`.
+- In class replace them with the partner laptops' hotspot URLs.
+- Partner calls are bounded by `PARTNER_TIMEOUT_SECONDS` (default 3 seconds).
 - `.env` is local-only; only `.env.example` is committed.
 
 ## Image tags

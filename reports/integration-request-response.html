@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Integration Evidence</title>
+<style>body{font:15px Segoe UI,Arial;background:#111827;color:#f3f4f6;padding:30px}main{max-width:1200px;margin:auto}.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}section{background:#1f2937;border:1px solid #4b5563;border-radius:12px;padding:20px}pre{white-space:pre-wrap;word-break:break-word;color:#bfdbfe}.ok{color:#4ade80}h1,h2{margin-top:0}.summary{background:#052e16;border-color:#16a34a;margin-bottom:20px}</style></head>
+<body><main><h1>Buoi 6 Integration Request / Response</h1><section class="summary"><strong class="ok">202 Accepted</strong> - policy ALERT persisted; Analytics and Notification both accepted the fan-out.</section>
+<div class="grid"><section><h2>Request</h2><pre>POST /api/v1/sensor-events
+Authorization: Bearer ***
+Idempotency-Key: evidence-sensor-0002
+X-Correlation-Id: 80cddcc0-72e8-41da-8425-22a263f11254
+
+{
+  "requestId": "54863377-aad9-42db-a9ad-9f58adbc2108",
+  "deviceId": "SENSOR-EVIDENCE-01",
+  "metric": "TEMPERATURE",
+  "value": 42.5,
+  "unit": "CELSIUS",
+  "occurredAt": "2026-06-13T09:00:00Z"
+}</pre></section>
+<section><h2>Response</h2><pre>{
+  "eventType": "sensor-event",
+  "status": "processed",
+  "result": {
+    "decisionId": "4f3dd295-96a4-4483-b956-bdf8514af304",
+    "outcome": "ALERT",
+    "reasonCode": "SENSOR_THRESHOLD_CRITICAL",
+    "alertId": "62681531-c7b1-4d67-a3fb-87e021a5e1e5"
+  },
+  "deliveries": {
+    "analytics": {"status": "accepted", "statusCode": 202},
+    "notification": {"status": "accepted", "statusCode": 202}
+  }
+}</pre></section></div>
+<p class="ok"><strong>Automated verification:</strong> Lab 05 12/12 requests, 35/35 assertions; Buoi 6 9/9 requests, 23/23 assertions; timeout test returned 503 after about 3 seconds.</p>
+</main></body></html>
