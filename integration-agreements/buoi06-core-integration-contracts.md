@@ -1,5 +1,8 @@
 # Integration Agreements - Team Core Business
 
+Copy-paste appointment forms for provider teams:
+[`phieu-hen-tich-hop-team-core-providers.md`](phieu-hen-tich-hop-team-core-providers.md).
+
 Base URL in class: `http://<CORE_DEMO_IP>:8000`
 
 All inbound requests include:
