@@ -4,13 +4,13 @@
 
 - Service: `core-business`
 - Host port: `8000`
-- Health: `GET http://<DEMO_IP>:8000/health`
+- Health: `GET http://<RADMIN_IP_TEAM_CORE>:8000/health`
 - Authentication: `Authorization: Bearer <AUTH_TOKEN>`
 - Contract: `contracts/core-business.openapi.yaml`
 
-The API listens on `0.0.0.0`. On the classroom hotspot, replace
-`<DEMO_IP>` with the current Wi-Fi IPv4 address and allow inbound TCP 8000 in
-Windows Firewall.
+The API listens on `0.0.0.0`. For remote or classroom testing, prefer the
+Radmin VPN address and replace `<RADMIN_IP_TEAM_CORE>` with the Radmin IP of
+the Core demo laptop. Allow inbound TCP 8000 in Windows Firewall.
 
 ## Integration endpoints
 
@@ -28,12 +28,12 @@ Core calls these providers:
 | Notification | `NOTIFICATION_SERVICE_URL` | `POST /api/v1/notifications` |
 | Analytics | `ANALYTICS_SERVICE_URL` | `POST /api/v1/events` |
 
-At home both variables point to `partner-service:9100`. In class, edit `.env`
-to use the partners' hotspot IP addresses, for example:
+At home both variables point to `partner-service:9100`. For cross-team testing,
+edit `.env` to use the partners' Radmin IP addresses, for example:
 
 ```env
-NOTIFICATION_SERVICE_URL=http://192.168.43.57:8000
-ANALYTICS_SERVICE_URL=http://192.168.43.58:8000
+NOTIFICATION_SERVICE_URL=http://<RADMIN_IP_TEAM_NOTIFICATION>:8000
+ANALYTICS_SERVICE_URL=http://<RADMIN_IP_TEAM_ANALYTICS>:8000
 PARTNER_TIMEOUT_SECONDS=3
 PARTNER_RETRY_COUNT=0
 ```
@@ -89,10 +89,11 @@ Expected results:
 ## Classroom sequence
 
 1. Connect all Product laptops to the same hotspot.
-2. Run `ipconfig` and publish the demo laptop Wi-Fi IPv4 and port 8000.
+2. Join the agreed Radmin VPN network and publish the demo laptop Radmin IP
+   and port 8000.
 3. Update Notification, Analytics, and HiveMQ MQTT variables in `.env`.
 4. Run `docker compose up -d --build --wait`.
-5. From a second laptop, call `GET http://<DEMO_IP>:8000/health`.
+5. From a second laptop, call `GET http://<RADMIN_IP_TEAM_CORE>:8000/health`.
 6. Ask IoT to publish one message to `smart-campus/events/sensor`, then check
    `GET /mqtt/events`.
 7. Run one agreed REST request for Vision and Gate.

@@ -17,6 +17,9 @@ Start with [`BUOI_06_READINESS.md`](BUOI_06_READINESS.md) and
 [`integration-agreements/buoi06-core-integration-contracts.md`](integration-agreements/buoi06-core-integration-contracts.md).
 Provider appointment forms for team-core are in
 [`integration-agreements/phieu-hen-tich-hop-team-core-providers.md`](integration-agreements/phieu-hen-tich-hop-team-core-providers.md).
+Use
+[`integration-agreements/radmin-ip-sheet.md`](integration-agreements/radmin-ip-sheet.md)
+to record Radmin VPN IPs for remote REST testing.
 
 ## Bai nop Team Core
 

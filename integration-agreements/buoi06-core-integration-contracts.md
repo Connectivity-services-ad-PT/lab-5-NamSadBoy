@@ -2,8 +2,14 @@
 
 Copy-paste appointment forms for provider teams:
 [`phieu-hen-tich-hop-team-core-providers.md`](phieu-hen-tich-hop-team-core-providers.md).
+Shared Radmin IP sheet:
+[`radmin-ip-sheet.md`](radmin-ip-sheet.md).
 
-Base URL in class: `http://<CORE_DEMO_IP>:8000`
+Base URL in class or remote test: `http://<RADMIN_IP_TEAM_CORE>:8000`
+
+Use the Radmin IP for REST calls between laptops. Do not use `localhost`,
+Wi-Fi/hotspot IP, or Docker service names across different machines. MQTT
+contracts still use the agreed broker URL.
 
 All inbound requests include:
 

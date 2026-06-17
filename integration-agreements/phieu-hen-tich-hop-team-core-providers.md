@@ -12,6 +12,14 @@ Thông tin chung của nhóm gọi:
 - Timeout đề xuất: `3 giây`
 - Correlation header cho REST: `X-Correlation-Id: <uuid>`
 
+Khi test từ xa bằng Radmin VPN:
+
+- REST provider URL dùng `http://<RADMIN_IP_PROVIDER>:<PORT>`.
+- Core URL để nhóm khác gọi dùng `http://<RADMIN_IP_TEAM_CORE>:8000`.
+- Không dùng `localhost`, IP Wi-Fi, hotspot IP, hoặc Docker service name khi
+  gọi giữa hai máy demo khác nhau.
+- MQTT vẫn đi qua broker cloud như HiveMQ, Radmin VPN không thay thế broker.
+
 Provider cần phản hồi lại cho team-core:
 
 - URL demo hoặc broker URL thực tế
@@ -32,7 +40,7 @@ Nhóm được gọi (provider): `team-ai-vision`
 URL provider:
 
 ```text
-http://<AI_VISION_DEMO_IP>:<PORT>
+http://<RADMIN_IP_TEAM_AI_VISION>:<PORT>
 ```
 
 Endpoint sẽ gọi:
@@ -56,7 +64,7 @@ Request mẫu:
   "sourceService": "team-core",
   "cameraId": "CAMERA-B6-01",
   "frameId": "frame-20260617-001",
-  "frameUrl": "http://<CORE_DEMO_IP>:8000/evidence/frames/frame-20260617-001.jpg",
+  "frameUrl": "http://<RADMIN_IP_TEAM_CORE>:8000/evidence/frames/frame-20260617-001.jpg",
   "capturedAt": "2026-06-17T14:30:10+07:00",
   "reason": "security_policy_verification"
 }
@@ -95,7 +103,7 @@ Core ghi log VISION_PROVIDER_UNAVAILABLE kèm correlationId và không treo API.
 Lần test lại dùng cùng requestId để đối chiếu log.
 ```
 
-Đã test `/health` qua Radmin/hotspot: `[ ]` Rồi   `[ ]` Chưa
+Đã test `GET http://<RADMIN_IP_TEAM_AI_VISION>:<PORT>/health`: `[ ]` Rồi   `[ ]` Chưa
 
 ---
 
@@ -108,7 +116,7 @@ Nhóm được gọi (provider): `team-access-gate`
 URL provider:
 
 ```text
-http://<ACCESS_GATE_DEMO_IP>:<PORT>
+http://<RADMIN_IP_TEAM_ACCESS_GATE>:<PORT>
 ```
 
 Endpoint sẽ gọi:
@@ -171,7 +179,7 @@ Core ghi log ACCESS_GATE_PROVIDER_UNAVAILABLE và trả trạng thái partner ok
 trong /partners/health, không làm treo /health.
 ```
 
-Đã test `/health` qua Radmin/hotspot: `[ ]` Rồi   `[ ]` Chưa
+Đã test `GET http://<RADMIN_IP_TEAM_ACCESS_GATE>:<PORT>/health`: `[ ]` Rồi   `[ ]` Chưa
 
 ---
 
@@ -241,7 +249,7 @@ Core ghi notification_queue_unavailable kèm correlationId. Policy decision
 vẫn được lưu, không mất quyết định Core.
 ```
 
-Đã test broker/topic qua Radmin/hotspot: `[ ]` Rồi   `[ ]` Chưa
+Đã test broker/topic qua HiveMQ/broker cloud: `[ ]` Rồi   `[ ]` Chưa
 
 ---
 
@@ -317,5 +325,4 @@ topic và credential. Nếu broker không kết nối được, Core ghi
 analytics_queue_unavailable và /partners/health trả ok=false.
 ```
 
-Đã test broker/topic qua Radmin/hotspot: `[ ]` Rồi   `[ ]` Chưa
-
+Đã test broker/topic qua HiveMQ/broker cloud: `[ ]` Rồi   `[ ]` Chưa
