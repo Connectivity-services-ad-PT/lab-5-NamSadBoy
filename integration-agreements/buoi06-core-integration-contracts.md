@@ -13,12 +13,37 @@ X-Correlation-Id: <uuid>
 
 ## IoT Ingestion to Core
 
-- `POST /api/v1/sensor-events`
-- Success: `202 Accepted`
+- Provider URL: `mqtts://f6f78e87db4a4c189dd3d706745a5e93.s1.eu.hivemq.cloud:8883`
+- Method: `MQTT PUBLISH`
+- Topic: `smart-campus/events/sensor`
+- QoS: `1`
+- Success evidence: Core subscribes to the topic and records the event in `GET /mqtt/events`.
 
 ```json
-{"requestId":"fd680d46-f0dd-4b32-aadf-6a0f51612251","deviceId":"SENSOR-B601","metric":"TEMPERATURE","value":42.5,"unit":"CELSIUS","occurredAt":"2026-06-13T08:01:00Z"}
+{
+  "eventId": "sensor-event-001",
+  "eventType": "sensor.reading.processed",
+  "sourceService": "team-iot",
+  "timestamp": "2026-06-17T14:30:10+07:00",
+  "rawEventId": "raw-iot-abc123",
+  "deviceId": "esp32-lab-a101",
+  "location": "Lab A101",
+  "temperatureC": 42.1,
+  "humidityPercent": 71.2,
+  "motionDetected": true,
+  "lightLux": 390,
+  "co2Ppm": 710,
+  "smokePpm": 0.03,
+  "batteryPercent": 86,
+  "status": "danger",
+  "alertLevel": "high",
+  "reason": "temperature_too_high"
+}
 ```
+
+Core maps this payload to an internal `SensorEvaluationRequest`, evaluates the
+temperature policy, creates an alert, and forwards the result to Analytics and
+Notification when configured.
 
 ## AI Vision to Core
 
@@ -54,10 +79,10 @@ X-Correlation-Id: <uuid>
 
 ## Failure agreement
 
-Core waits at most `PARTNER_TIMEOUT_SECONDS` (default 3 seconds). A timeout,
-connection error, or non-2xx partner response produces HTTP `503` with
-`application/problem+json`. The consumer retries with the same
-`Idempotency-Key`; Core reuses the existing policy decision.
+REST partner calls wait at most `PARTNER_TIMEOUT_SECONDS` (default 3 seconds).
+A timeout, connection error, or non-2xx partner response produces HTTP `503`
+with `application/problem+json`. MQTT publish is asynchronous: IoT uses QoS 1
+and Core verifies subscription/topic/credential through `/mqtt/status`,
+`/mqtt/events`, and `/partners/health`.
 
 Hotspot health test completed: `[ ]` (check in class with a second laptop)
-

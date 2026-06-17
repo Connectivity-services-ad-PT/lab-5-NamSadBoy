@@ -14,9 +14,10 @@ Windows Firewall.
 
 ## Integration endpoints
 
-| Consumer | Method and path | Success |
+| Consumer | Method and path/topic | Success |
 |---|---|---|
-| IoT Ingestion | `POST /api/v1/sensor-events` | `202` |
+| IoT Ingestion | MQTT publish `smart-campus/events/sensor` | Core logs event in `/mqtt/events` |
+| IoT Ingestion fallback | `POST /api/v1/sensor-events` | `202` |
 | AI Vision | `POST /api/v1/detections` | `202` |
 | Access Gate | `POST /api/v1/access-events` | `200` |
 
@@ -37,6 +38,20 @@ PARTNER_TIMEOUT_SECONDS=3
 PARTNER_RETRY_COUNT=0
 ```
 
+Team IoT publishes to HiveMQ Cloud. In class, set MQTT variables like this
+and fill username/password from the private group chat:
+
+```env
+MQTT_ENABLED=true
+MQTT_HOST=f6f78e87db4a4c189dd3d706745a5e93.s1.eu.hivemq.cloud
+MQTT_PORT=8883
+MQTT_TLS=true
+MQTT_USERNAME=<hivemq-username>
+MQTT_PASSWORD=<hivemq-password>
+MQTT_TOPIC=smart-campus/events/sensor
+MQTT_QOS=1
+```
+
 Never put classroom IP addresses directly in Python source code.
 
 ## Failure behavior
@@ -48,6 +63,10 @@ Never put classroom IP addresses directly in Python source code.
   does not lose the Core decision.
 - Consumers should retry with the same `Idempotency-Key`.
 - Core `/health` checks its internal database and audit sink only.
+- Core `/partners/health` reports HTTP partners and MQTT subscription state
+  with `ok=false` on errors instead of hanging.
+- MQTT messages are processed asynchronously, so IoT expects Core evidence in
+  `/mqtt/events`, not an HTTP response body.
 
 ## Home verification
 
@@ -62,6 +81,8 @@ Expected results:
 
 - Lab 05: 12 requests, 35 assertions, 0 failures.
 - Buoi 6: 9 requests, 23 assertions, 0 failures.
+- MQTT smoke test: QoS 1 publish is recorded by Core and fan-out reaches the
+  local Notification/Analytics mock.
 - Timeout scenario: Analytics delays 5 seconds; Core returns `503` after about
   3 seconds and remains healthy afterward.
 
@@ -69,9 +90,10 @@ Expected results:
 
 1. Connect all Product laptops to the same hotspot.
 2. Run `ipconfig` and publish the demo laptop Wi-Fi IPv4 and port 8000.
-3. Update Notification and Analytics URLs in `.env`.
+3. Update Notification, Analytics, and HiveMQ MQTT variables in `.env`.
 4. Run `docker compose up -d --build --wait`.
 5. From a second laptop, call `GET http://<DEMO_IP>:8000/health`.
-6. Run one agreed request for IoT, Vision, and Gate.
-7. Save partner health and request/response screenshots in `reports/`.
-
+6. Ask IoT to publish one message to `smart-campus/events/sensor`, then check
+   `GET /mqtt/events`.
+7. Run one agreed REST request for Vision and Gate.
+8. Save partner health, MQTT event log, and request/response evidence in `reports/`.

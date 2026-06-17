@@ -23,3 +23,4 @@ readiness:
 	curl http://localhost:8000/health
 	curl http://localhost:9000/health
 	curl http://localhost:9100/health
+	curl http://localhost:8000/mqtt/status

@@ -5,11 +5,13 @@
 The repository now also contains the Team Core integration build for Buoi 6:
 
 - `POST /api/v1/sensor-events` for IoT Ingestion.
+- MQTT subscribe `smart-campus/events/sensor` for the team-iot HiveMQ flow.
 - `POST /api/v1/detections` for AI Vision.
 - `POST /api/v1/access-events` for Access Gate.
 - Outbound Notification and Analytics calls configured through `.env`.
 - A 3-second partner timeout returning RFC 7807 HTTP 503.
 - A local partner mock and a dedicated 9-request Newman integration suite.
+- A local Mosquitto broker and MQTT smoke test for the team-iot payload.
 
 Start with [`BUOI_06_READINESS.md`](BUOI_06_READINESS.md) and
 [`integration-agreements/buoi06-core-integration-contracts.md`](integration-agreements/buoi06-core-integration-contracts.md).

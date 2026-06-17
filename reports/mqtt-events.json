@@ -1,0 +1,70 @@
+{
+    "items":  [
+                  {
+                      "status":  "processed",
+                      "topic":  "smart-campus/events/sensor",
+                      "qos":  1,
+                      "mqttEventId":  "sensor-event-1781715220744",
+                      "rawEventId":  "raw-iot-abc123",
+                      "sourceService":  "team-iot",
+                      "receivedAt":  "2026-06-17T16:53:41.035233Z",
+                      "payload":  {
+                                      "eventId":  "sensor-event-1781715220744",
+                                      "eventType":  "sensor.reading.processed",
+                                      "sourceService":  "team-iot",
+                                      "timestamp":  "2026-06-17T14:30:10+07:00",
+                                      "rawEventId":  "raw-iot-abc123",
+                                      "deviceId":  "esp32-lab-a101",
+                                      "location":  "Lab A101",
+                                      "temperatureC":  42.1,
+                                      "humidityPercent":  71.2,
+                                      "motionDetected":  true,
+                                      "lightLux":  390.0,
+                                      "co2Ppm":  710.0,
+                                      "smokePpm":  0.03,
+                                      "batteryPercent":  86.0,
+                                      "status":  "danger",
+                                      "alertLevel":  "high",
+                                      "reason":  "temperature_too_high"
+                                  },
+                      "normalizedRequest":  {
+                                                "requestId":  "4fbc5f59-58e3-5dbd-a836-5d96769c9f91",
+                                                "deviceId":  "SENSOR-ESP32-LAB-A101",
+                                                "metric":  "TEMPERATURE",
+                                                "value":  42.1,
+                                                "unit":  "CELSIUS",
+                                                "occurredAt":  "2026-06-17T14:30:10+07:00"
+                                            },
+                      "result":  {
+                                     "decisionId":  "caed8276-b0bf-4390-90bd-8b2b1028574d",
+                                     "requestId":  "4fbc5f59-58e3-5dbd-a836-5d96769c9f91",
+                                     "outcome":  "ALERT",
+                                     "reasonCode":  "SENSOR_THRESHOLD_CRITICAL",
+                                     "policyId":  "98ae19f6-13f6-4cc5-aa8f-3b76cb8c68ec",
+                                     "alertId":  "8506a976-0429-4e33-a4af-edf229dc9e3b",
+                                     "evaluatedAt":  "2026-06-17T16:53:41.106919Z"
+                                 },
+                      "deliveries":  {
+                                         "analytics":  {
+                                                           "provider":  "analytics",
+                                                           "status":  "accepted",
+                                                           "statusCode":  202,
+                                                           "providerResponse":  {
+                                                                                    "eventId":  "80c3ea55-5a00-4d85-92f8-adc61581d86d",
+                                                                                    "status":  "accepted"
+                                                                                }
+                                                       },
+                                         "notification":  {
+                                                              "provider":  "notification",
+                                                              "status":  "accepted",
+                                                              "statusCode":  202,
+                                                              "providerResponse":  {
+                                                                                       "notificationId":  "e3f7afeb-cd87-4fd4-9c99-ea4187e98bc4",
+                                                                                       "status":  "accepted"
+                                                                                   }
+                                                          }
+                                     }
+                  }
+              ],
+    "count":  1
+}

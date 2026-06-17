@@ -1,0 +1,9 @@
+{
+    "enabled":  true,
+    "connected":  true,
+    "host":  "mqtt-broker",
+    "port":  1883,
+    "topic":  "smart-campus/events/sensor",
+    "qos":  1,
+    "receivedCount":  1
+}

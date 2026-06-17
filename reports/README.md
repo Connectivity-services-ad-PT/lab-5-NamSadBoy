@@ -4,8 +4,12 @@
 - `compose-ps.txt`: healthy Core, audit, partner mock, and database containers.
 - `api-health.txt`, `audit-health.txt`, `db-readiness.txt`: readiness probes.
 - `partner-health.txt`: Notification/Analytics mock readiness probe.
+- `partners-health.txt`: Core `/partners/health` snapshot for HTTP partners and MQTT.
+- `mqtt-status.txt`: MQTT broker, topic, QoS, and subscriber connection evidence.
+- `mqtt-events.json`: recent MQTT events recorded by Core.
 - `newman-lab05-compose.xml`, `newman-lab05-compose.html`: contract test reports.
 - `newman-buoi06-integration.xml`, `newman-buoi06-integration.html`: integration, fan-out, timeout, and recovery reports.
+- `mqtt-smoke-test.json`: local QoS 1 publish evidence for the team-iot payload.
 - `database-evidence.txt`: persisted decision and alert counts.
 - `audit-events.json`: internal integration events.
 - `image-tags.txt`: versioned images used by Compose.

@@ -14,7 +14,9 @@
 - [x] **Outbound partners:** Notification and Analytics URLs are externalized through `.env`.
 - [x] **Bounded failure:** a 5-second mock delay returns HTTP 503 after the configured 3-second timeout.
 - [x] **Partner recovery:** Core health remains 200 after the timeout scenario is reset.
+- [x] **MQTT IoT flow:** Core subscribes to `smart-campus/events/sensor` and records QoS 1 sensor events.
 - [ ] **Class hotspot:** a second laptop has called `GET /health` using the current demo IP.
+- [ ] **HiveMQ credentials:** real team-iot username/password have been added to local `.env`.
 - [ ] **Real partners:** Notification and Analytics team URLs have been tested on the classroom hotspot.
 
 Known limitation: registry publication depends on the linked registry credentials;

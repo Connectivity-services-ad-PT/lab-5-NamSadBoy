@@ -10,6 +10,8 @@
 - [x] Partner timeout returns HTTP 503 Problem Details.
 - [x] Core remains healthy after the partner timeout test.
 - [x] OpenAPI lint and both Newman suites pass.
+- [x] Local MQTT QoS 1 publish is received and processed by Core.
 - [ ] A second classroom laptop can call Core through the shared hotspot.
+- [ ] HiveMQ Cloud credentials from team-iot are configured in local `.env`.
 - [ ] Core can call the real Notification and Analytics team laptops.
 - [ ] Windows Firewall inbound rule for TCP 8000 is confirmed on the demo laptop.

@@ -1,0 +1,26 @@
+{
+    "ok":  true,
+    "partners":  [
+                     {
+                         "name":  "notification",
+                         "ok":  true,
+                         "statusCode":  200,
+                         "url":  "http://partner-service:9100"
+                     },
+                     {
+                         "name":  "analytics",
+                         "ok":  true,
+                         "statusCode":  200,
+                         "url":  "http://partner-service:9100"
+                     },
+                     {
+                         "name":  "mqtt",
+                         "ok":  true,
+                         "enabled":  true,
+                         "host":  "mqtt-broker",
+                         "port":  1883,
+                         "topic":  "smart-campus/events/sensor",
+                         "qos":  1
+                     }
+                 ]
+}

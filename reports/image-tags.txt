@@ -1,9 +1,5 @@
-CONTAINER                      REPOSITORY                  TAG
-fit4110-core-api-lab05         fit4110/core-business       v0.1.0-team-core
-fit4110-core-audit-lab05       fit4110/core-audit          v0.1.0-team-core
-fit4110-partner-mock-lab06     fit4110/partner-mock        v0.1.0-team-core
-fit4110-db-lab05               postgres                    15-alpine
-
-Published application images:
-ghcr.io/connectivity-services-ad-pt/core-business-compose:v0.1.0-team-core
-ghcr.io/connectivity-services-ad-pt/core-audit:v0.1.0-team-core
+﻿fit4110/partner-mock	v0.1.0-team-core	7d5509b4b4c6	291MB
+fit4110/core-business	v0.1.0-team-core	540ef6e33223	291MB
+fit4110/core-audit	v0.1.0-team-core	50388f1c92ac	291MB
+postgres	15-alpine	09e4f20b14dd	392MB
+eclipse-mosquitto	2	a908c65cc8e6	35.9MB

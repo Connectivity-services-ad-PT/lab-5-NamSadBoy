@@ -1,12 +1,16 @@
+from __future__ import annotations
+
 import json
 import os
+import re
 import time
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 import httpx
+import paho.mqtt.client as mqtt
 import psycopg
 from fastapi import Depends, FastAPI, Header, Query, Request
 from fastapi.exceptions import RequestValidationError
@@ -33,6 +37,15 @@ ANALYTICS_SERVICE_URL = os.getenv(
 ).rstrip("/")
 PARTNER_TIMEOUT_SECONDS = float(os.getenv("PARTNER_TIMEOUT_SECONDS", "3"))
 PARTNER_RETRY_COUNT = int(os.getenv("PARTNER_RETRY_COUNT", "0"))
+MQTT_ENABLED = os.getenv("MQTT_ENABLED", "true").lower() == "true"
+MQTT_HOST = os.getenv("MQTT_HOST", "mqtt-broker")
+MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
+MQTT_TLS = os.getenv("MQTT_TLS", "false").lower() == "true"
+MQTT_USERNAME = os.getenv("MQTT_USERNAME") or None
+MQTT_PASSWORD = os.getenv("MQTT_PASSWORD") or None
+MQTT_TOPIC = os.getenv("MQTT_TOPIC", "smart-campus/events/sensor")
+MQTT_QOS = int(os.getenv("MQTT_QOS", "1"))
+MQTT_CLIENT_ID = os.getenv("MQTT_CLIENT_ID", "team-core-core-business")
 
 ACCESS_POLICY_ID = "7e34be8b-1da8-483e-b5ae-28f8662d0ac7"
 SENSOR_POLICY_ID = "98ae19f6-13f6-4cc5-aa8f-3b76cb8c68ec"
@@ -233,6 +246,9 @@ policies: dict[str, dict[str, Any]] = {
 decisions: dict[str, dict[str, Any]] = {}
 alerts: list[dict[str, Any]] = []
 idempotency_results: dict[str, dict[str, Any]] = {}
+mqtt_events: list[dict[str, Any]] = []
+mqtt_client: mqtt.Client | None = None
+mqtt_connected = False
 
 
 def db_connection() -> psycopg.Connection:
@@ -272,6 +288,12 @@ def init_database() -> None:
 @app.on_event("startup")
 def startup() -> None:
     init_database()
+    start_mqtt_subscriber()
+
+
+@app.on_event("shutdown")
+def shutdown() -> None:
+    stop_mqtt_subscriber()
 
 
 def persist_decision(result: dict[str, Any]) -> None:
@@ -339,6 +361,181 @@ def cached(idempotency_key: str | None) -> dict[str, Any] | None:
 def remember(idempotency_key: str | None, result: dict[str, Any]) -> None:
     if idempotency_key:
         idempotency_results[idempotency_key] = result
+
+
+class IotMqttSensorEvent(BaseModel):
+    eventId: str = Field(min_length=3, max_length=128)
+    eventType: str = Field(min_length=3, max_length=128)
+    sourceService: str = Field(min_length=3, max_length=64)
+    timestamp: datetime
+    rawEventId: str = Field(min_length=3, max_length=128)
+    deviceId: str = Field(min_length=3, max_length=64)
+    location: str = Field(min_length=1, max_length=128)
+    temperatureC: float | None = Field(default=None, ge=-100, le=200)
+    humidityPercent: float | None = Field(default=None, ge=0, le=100)
+    motionDetected: bool | None = None
+    lightLux: float | None = Field(default=None, ge=0, le=200000)
+    co2Ppm: float | None = Field(default=None, ge=0, le=100000)
+    smokePpm: float | None = Field(default=None, ge=0, le=100000)
+    batteryPercent: float | None = Field(default=None, ge=0, le=100)
+    status: str = Field(min_length=2, max_length=32)
+    alertLevel: str = Field(min_length=2, max_length=32)
+    reason: str = Field(min_length=2, max_length=128)
+
+
+def normalize_sensor_id(device_id: str) -> str:
+    normalized = re.sub(r"[^A-Z0-9-]+", "-", device_id.upper()).strip("-")
+    normalized = normalized[:17] or "UNKNOWN"
+    return f"SENSOR-{normalized}"
+
+
+def iot_event_to_sensor_request(event: IotMqttSensorEvent) -> SensorEvaluationRequest:
+    event_reason = event.reason.lower()
+    if event.temperatureC is not None and (
+        "temperature" in event_reason or event.temperatureC >= 35
+    ):
+        metric = SensorMetric.TEMPERATURE
+        value = event.temperatureC
+        unit = SensorUnit.CELSIUS
+    elif event.smokePpm is not None and (event.smokePpm > 0 or "smoke" in event_reason):
+        metric = SensorMetric.SMOKE
+        value = event.smokePpm
+        unit = SensorUnit.PPM
+    elif event.co2Ppm is not None and ("co2" in event_reason or event.co2Ppm >= 1000):
+        metric = SensorMetric.CO2
+        value = event.co2Ppm
+        unit = SensorUnit.PPM
+    else:
+        metric = SensorMetric.HUMIDITY
+        value = event.humidityPercent or 0
+        unit = SensorUnit.PERCENT
+
+    request_id = uuid5(NAMESPACE_URL, f"{event.sourceService}:{event.eventId}:{event.rawEventId}")
+    return SensorEvaluationRequest(
+        requestId=request_id,
+        deviceId=normalize_sensor_id(event.deviceId),
+        metric=metric,
+        value=value,
+        unit=unit,
+        occurredAt=event.timestamp,
+    )
+
+
+def record_mqtt_event(record: dict[str, Any]) -> None:
+    mqtt_events.append(record)
+    del mqtt_events[:-100]
+
+
+def process_iot_mqtt_message(topic: str, qos: int, payload_bytes: bytes) -> None:
+    received_at = iso(utc_now())
+    try:
+        raw_payload = json.loads(payload_bytes.decode("utf-8"))
+        event = IotMqttSensorEvent.model_validate(raw_payload)
+        sensor_request = iot_event_to_sensor_request(event)
+        result = evaluate_sensor(sensor_request, f"mqtt:{event.eventId}")
+        correlation_id = str(uuid5(NAMESPACE_URL, f"mqtt:{event.eventId}"))
+        status = "processed"
+        try:
+            deliveries: dict[str, Any] = deliver_integration_result(
+                "sensor-event",
+                sensor_request,
+                result,
+                correlation_id,
+            )
+        except ProblemError as exc:
+            status = "processed_partner_failed"
+            deliveries = {
+                "error": {
+                    "status": exc.status_code,
+                    "title": exc.title,
+                    "detail": exc.detail,
+                }
+            }
+
+        record = {
+            "status": status,
+            "topic": topic,
+            "qos": qos,
+            "mqttEventId": event.eventId,
+            "rawEventId": event.rawEventId,
+            "sourceService": event.sourceService,
+            "receivedAt": received_at,
+            "payload": event.model_dump(mode="json"),
+            "normalizedRequest": sensor_request.model_dump(mode="json"),
+            "result": result,
+            "deliveries": deliveries,
+        }
+        record_mqtt_event(record)
+        publish_audit_event({"eventType": "mqtt.sensor.received", "payload": record})
+    except Exception as exc:
+        record_mqtt_event(
+            {
+                "status": "invalid",
+                "topic": topic,
+                "qos": qos,
+                "receivedAt": received_at,
+                "error": f"{exc.__class__.__name__}: {exc}",
+                "payload": payload_bytes.decode("utf-8", errors="replace"),
+            }
+        )
+
+
+def start_mqtt_subscriber() -> None:
+    global mqtt_client
+    if not MQTT_ENABLED:
+        return
+
+    client = mqtt.Client(
+        callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+        client_id=MQTT_CLIENT_ID,
+        protocol=mqtt.MQTTv311,
+    )
+    if MQTT_USERNAME:
+        client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+    if MQTT_TLS:
+        client.tls_set()
+
+    def on_connect(
+        client: mqtt.Client,
+        userdata: Any,
+        flags: mqtt.ConnectFlags,
+        reason_code: mqtt.ReasonCode,
+        properties: mqtt.Properties | None,
+    ) -> None:
+        global mqtt_connected
+        mqtt_connected = reason_code == 0
+        if mqtt_connected:
+            client.subscribe(MQTT_TOPIC, qos=MQTT_QOS)
+
+    def on_disconnect(
+        client: mqtt.Client,
+        userdata: Any,
+        disconnect_flags: mqtt.DisconnectFlags,
+        reason_code: mqtt.ReasonCode,
+        properties: mqtt.Properties | None,
+    ) -> None:
+        global mqtt_connected
+        mqtt_connected = False
+
+    def on_message(client: mqtt.Client, userdata: Any, message: mqtt.MQTTMessage) -> None:
+        process_iot_mqtt_message(message.topic, message.qos, message.payload)
+
+    client.on_connect = on_connect
+    client.on_disconnect = on_disconnect
+    client.on_message = on_message
+    client.reconnect_delay_set(min_delay=1, max_delay=30)
+    client.connect_async(MQTT_HOST, MQTT_PORT, keepalive=60)
+    client.loop_start()
+    mqtt_client = client
+
+
+def stop_mqtt_subscriber() -> None:
+    global mqtt_client, mqtt_connected
+    if mqtt_client:
+        mqtt_client.loop_stop()
+        mqtt_client.disconnect()
+    mqtt_client = None
+    mqtt_connected = False
 
 
 def deliver_to_partner(
@@ -480,6 +677,74 @@ def health() -> dict[str, str]:
         "version": SERVICE_VERSION,
         "policyStore": "ready",
     }
+
+
+def http_partner_health(name: str, base_url: str) -> dict[str, Any]:
+    try:
+        response = httpx.get(f"{base_url}/health", timeout=PARTNER_TIMEOUT_SECONDS)
+        return {
+            "name": name,
+            "ok": response.status_code < 500,
+            "statusCode": response.status_code,
+            "url": base_url,
+        }
+    except httpx.TimeoutException:
+        return {
+            "name": name,
+            "ok": False,
+            "url": base_url,
+            "error": f"timeout after {PARTNER_TIMEOUT_SECONDS:g} seconds",
+        }
+    except httpx.RequestError as exc:
+        return {
+            "name": name,
+            "ok": False,
+            "url": base_url,
+            "error": exc.__class__.__name__,
+        }
+
+
+@app.get("/partners/health", tags=["Health"])
+def partners_health() -> dict[str, Any]:
+    partners = [
+        http_partner_health("notification", NOTIFICATION_SERVICE_URL),
+        http_partner_health("analytics", ANALYTICS_SERVICE_URL),
+        {
+            "name": "mqtt",
+            "ok": (not MQTT_ENABLED) or mqtt_connected,
+            "enabled": MQTT_ENABLED,
+            "host": MQTT_HOST,
+            "port": MQTT_PORT,
+            "topic": MQTT_TOPIC,
+            "qos": MQTT_QOS,
+        },
+    ]
+    return {"ok": all(partner["ok"] for partner in partners), "partners": partners}
+
+
+@app.get("/mqtt/status", tags=["Integration"])
+def get_mqtt_status() -> dict[str, Any]:
+    return {
+        "enabled": MQTT_ENABLED,
+        "connected": mqtt_connected,
+        "host": MQTT_HOST,
+        "port": MQTT_PORT,
+        "topic": MQTT_TOPIC,
+        "qos": MQTT_QOS,
+        "receivedCount": len(mqtt_events),
+    }
+
+
+@app.get("/mqtt/events", tags=["Integration"], dependencies=[Depends(require_auth)])
+def list_mqtt_events(limit: int = Query(default=20, ge=1, le=100)) -> dict[str, Any]:
+    items = list(reversed(mqtt_events))[:limit]
+    return {"items": items, "count": len(items)}
+
+
+@app.delete("/mqtt/events", tags=["Integration"], dependencies=[Depends(require_auth)])
+def clear_mqtt_events() -> dict[str, str]:
+    mqtt_events.clear()
+    return {"status": "cleared"}
 
 
 @app.post(

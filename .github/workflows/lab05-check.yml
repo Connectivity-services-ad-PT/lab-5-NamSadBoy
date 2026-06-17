@@ -53,6 +53,9 @@ jobs:
       - name: Test partner mock health
         run: curl -fsS http://localhost:9100/health
 
+      - name: Test local MQTT broker
+        run: docker compose exec -T mqtt-broker mosquitto_pub -h 127.0.0.1 -p 1883 -t smart-campus/health -m ok -q 1
+
       - name: Test database readiness
         run: |
           set -a

@@ -52,6 +52,69 @@ paths:
                     service: core-business
                     version: 1.0.0
                     policyStore: ready
+  /partners/health:
+    get:
+      tags: [Health]
+      summary: Check partner integration health
+      description: Returns ok=false instead of hanging when Notification, Analytics, or MQTT is unavailable.
+      operationId: getPartnersHealth
+      security: []
+      responses:
+        "200":
+          description: Partner health snapshot.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /mqtt/status:
+    get:
+      tags: [Integration]
+      summary: Check MQTT subscriber status
+      description: Shows MQTT topic, QoS, broker target, connection state, and number of received messages.
+      operationId: getMqttStatus
+      security: []
+      responses:
+        "200":
+          description: MQTT subscriber status.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /mqtt/events:
+    get:
+      tags: [Integration]
+      summary: List MQTT sensor events received by Core
+      description: Evidence endpoint for team-iot MQTT publish integration.
+      operationId: listMqttEvents
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Recent MQTT events.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      tags: [Integration]
+      summary: Clear MQTT sensor event evidence
+      description: Clears local MQTT evidence before an automated smoke test.
+      operationId: clearMqttEvents
+      responses:
+        "200":
+          description: Event evidence cleared.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /api/v1/access-events:
     post:
       tags: [Integration]

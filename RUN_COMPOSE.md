@@ -7,11 +7,14 @@ Access Gate / Newman
         |
         v
 Core Business API :8000
-   |          |               |
-   v          v               v
-PostgreSQL  Audit :9000   Partner mock :9100
+   |          |               |                  ^
+   v          v               v                  |
+PostgreSQL  Audit :9000   Partner mock :9100    |
 decisions   internal log  Notification + Analytics
-alerts
+alerts                                             |
+   ^                                               |
+   | MQTT QoS 1 smart-campus/events/sensor         |
+Mosquitto local / HiveMQ Cloud --------------------+
 ```
 
 All containers communicate on `team-core-internal`.
@@ -50,6 +53,7 @@ Expected containers:
 - `fit4110-core-api-lab05`
 - `fit4110-core-audit-lab05`
 - `fit4110-partner-mock-lab06`
+- `fit4110-mqtt-broker-lab06`
 - `fit4110-db-lab05`
 
 ## End-to-end test
@@ -65,6 +69,7 @@ Expected Newman results:
 
 - Lab 05: 12 requests, 35 assertions, 0 failures.
 - Buoi 6: 9 requests, 23 assertions, 0 failures.
+- MQTT: QoS 1 publish is received by Core and visible in `/mqtt/events`.
 
 ## Configuration
 
@@ -76,6 +81,9 @@ Expected Newman results:
 - At home both partner URLs point to `http://partner-service:9100`.
 - In class replace them with the partner laptops' hotspot URLs.
 - Partner calls are bounded by `PARTNER_TIMEOUT_SECONDS` (default 3 seconds).
+- Local MQTT uses `mqtt-broker:1883`. For HiveMQ Cloud set
+  `MQTT_HOST`, `MQTT_PORT=8883`, `MQTT_TLS=true`, `MQTT_USERNAME`, and
+  `MQTT_PASSWORD` in `.env`.
 - `.env` is local-only; only `.env.example` is committed.
 
 ## Image tags

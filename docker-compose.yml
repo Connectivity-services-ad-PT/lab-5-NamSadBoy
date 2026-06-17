@@ -17,6 +17,8 @@ services:
         condition: service_healthy
       partner-service:
         condition: service_healthy
+      mqtt-broker:
+        condition: service_healthy
     ports:
       - "${APP_PORT:-8000}:8000"
     networks:
@@ -31,6 +33,25 @@ services:
       timeout: 3s
       retries: 6
       start_period: 10s
+    restart: unless-stopped
+
+  mqtt-broker:
+    image: eclipse-mosquitto:2
+    container_name: fit4110-mqtt-broker-lab06
+    volumes:
+      - ./mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    ports:
+      - "${MQTT_LOCAL_PORT:-1883}:1883"
+    networks:
+      - team-internal
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mosquitto_pub -h 127.0.0.1 -p 1883 -t smart-campus/health -m ok -q 1
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
     restart: unless-stopped
 
   partner-service:

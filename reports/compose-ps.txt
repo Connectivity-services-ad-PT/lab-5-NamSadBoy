@@ -1,5 +1,6 @@
-NAME                         IMAGE                                    SERVICE           STATUS                  PORTS
-fit4110-core-api-lab05       fit4110/core-business:v0.1.0-team-core   api               running (healthy)       0.0.0.0:8000->8000/tcp
-fit4110-core-audit-lab05     fit4110/core-audit:v0.1.0-team-core      audit-service     running (healthy)       0.0.0.0:9000->9000/tcp
-fit4110-partner-mock-lab06   fit4110/partner-mock:v0.1.0-team-core    partner-service   running (healthy)       0.0.0.0:9100->9100/tcp
-fit4110-db-lab05             postgres:15-alpine                       db                running (healthy)       5432/tcp internal
+﻿NAME                         IMAGE                                    COMMAND                  SERVICE           CREATED              STATUS                        PORTS
+fit4110-core-api-lab05       fit4110/core-business:v0.1.0-team-core   "sh -c 'uvicorn core…"   api               About a minute ago   Up About a minute (healthy)   0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp
+fit4110-core-audit-lab05     fit4110/core-audit:v0.1.0-team-core      "uvicorn audit_servi…"   audit-service     About a minute ago   Up About a minute (healthy)   0.0.0.0:9000->9000/tcp, [::]:9000->9000/tcp
+fit4110-db-lab05             postgres:15-alpine                       "docker-entrypoint.s…"   db                About a minute ago   Up About a minute (healthy)   5432/tcp
+fit4110-mqtt-broker-lab06    eclipse-mosquitto:2                      "/docker-entrypoint.…"   mqtt-broker       About a minute ago   Up About a minute (healthy)   0.0.0.0:1883->1883/tcp, [::]:1883->1883/tcp
+fit4110-partner-mock-lab06   fit4110/partner-mock:v0.1.0-team-core    "uvicorn partner_ser…"   partner-service   About a minute ago   Up About a minute (healthy)   0.0.0.0:9100->9100/tcp, [::]:9100->9100/tcp
