@@ -3,13 +3,13 @@
     "brokerUrl": "mqtt://localhost:1883",
     "topic": "smart-campus/events/sensor",
     "qos": 1,
-    "eventId": "sensor-event-1781715220744"
+    "eventId": "sensor-event-1781746545064"
   },
   "received": {
     "status": "processed",
     "normalizedDeviceId": "SENSOR-ESP32-LAB-A101",
     "outcome": "ALERT",
-    "reasonCode": "SENSOR_THRESHOLD_CRITICAL",
+    "reasonCode": "IOT_STATUS_DANGER",
     "analytics": "accepted",
     "notification": "accepted"
   }

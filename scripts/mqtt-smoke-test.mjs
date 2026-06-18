@@ -13,8 +13,6 @@ const payload = {
   eventId,
   eventType: "sensor.reading.processed",
   sourceService: "team-iot",
-  timestamp: "2026-06-17T14:30:10+07:00",
-  rawEventId: "raw-iot-abc123",
   deviceId: "esp32-lab-a101",
   location: "Lab A101",
   temperatureC: 42.1,

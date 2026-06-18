@@ -71,6 +71,11 @@ Never put classroom IP addresses directly in Python source code.
   with `ok=false` on errors instead of hanging.
 - MQTT messages are processed asynchronously, so IoT expects Core evidence in
   `/mqtt/events`, not an HTTP response body.
+- IoT MQTT policy rules:
+  - `status=danger` creates an `ALERT`.
+  - `status=warning` creates a `WARNING` alert.
+  - `reason=smoke_detected` creates a critical alert.
+  - `motionDetected=true` outside 07:00-18:00 creates an unusual-motion alert.
 
 ## Home verification
 

@@ -375,8 +375,8 @@ class IotMqttSensorEvent(BaseModel):
     eventId: str = Field(min_length=3, max_length=128)
     eventType: str = Field(min_length=3, max_length=128)
     sourceService: str = Field(min_length=3, max_length=64)
-    timestamp: datetime
-    rawEventId: str = Field(min_length=3, max_length=128)
+    timestamp: datetime = Field(default_factory=utc_now)
+    rawEventId: str | None = Field(default=None, min_length=3, max_length=128)
     deviceId: str = Field(min_length=3, max_length=64)
     location: str = Field(min_length=1, max_length=128)
     temperatureC: float | None = Field(default=None, ge=-100, le=200)
@@ -399,7 +399,11 @@ def normalize_sensor_id(device_id: str) -> str:
 
 def iot_event_to_sensor_request(event: IotMqttSensorEvent) -> SensorEvaluationRequest:
     event_reason = event.reason.lower()
-    if event.temperatureC is not None and (
+    if "smoke" in event_reason:
+        metric = SensorMetric.SMOKE
+        value = event.smokePpm if event.smokePpm and event.smokePpm > 0 else 1
+        unit = SensorUnit.PPM
+    elif event.temperatureC is not None and (
         "temperature" in event_reason or event.temperatureC >= 35
     ):
         metric = SensorMetric.TEMPERATURE
@@ -418,7 +422,8 @@ def iot_event_to_sensor_request(event: IotMqttSensorEvent) -> SensorEvaluationRe
         value = event.humidityPercent or 0
         unit = SensorUnit.PERCENT
 
-    request_id = uuid5(NAMESPACE_URL, f"{event.sourceService}:{event.eventId}:{event.rawEventId}")
+    raw_event_id = event.rawEventId or event.eventId
+    request_id = uuid5(NAMESPACE_URL, f"{event.sourceService}:{event.eventId}:{raw_event_id}")
     return SensorEvaluationRequest(
         requestId=request_id,
         deviceId=normalize_sensor_id(event.deviceId),
@@ -427,6 +432,78 @@ def iot_event_to_sensor_request(event: IotMqttSensorEvent) -> SensorEvaluationRe
         unit=unit,
         occurredAt=event.timestamp,
     )
+
+
+def is_after_hours(occurred_at: datetime) -> bool:
+    local_time = occurred_at.astimezone(timezone(timedelta(hours=7)))
+    return local_time.hour < 7 or local_time.hour >= 18
+
+
+def evaluate_iot_sensor_event(
+    event: IotMqttSensorEvent,
+    payload: SensorEvaluationRequest,
+    idempotency_key: str | None,
+) -> dict[str, Any]:
+    previous = cached(idempotency_key)
+    if previous:
+        return previous
+
+    event_status = event.status.lower()
+    event_reason = event.reason.lower()
+    alert_level = event.alertLevel.lower()
+
+    if "smoke_detected" in event_reason or (
+        "smoke" in event_reason and event.smokePpm is not None and event.smokePpm > 0
+    ):
+        outcome, reason, severity = "ALERT", "IOT_SMOKE_DETECTED_CRITICAL", "CRITICAL"
+    elif event.motionDetected and is_after_hours(event.timestamp):
+        outcome, reason, severity = "ALERT", "IOT_MOTION_DETECTED_OUT_OF_HOURS", "HIGH"
+    elif event_status == "danger" or alert_level in {"high", "critical"}:
+        outcome, reason, severity = "ALERT", "IOT_STATUS_DANGER", "CRITICAL"
+    elif event_status == "warning" or alert_level in {"medium", "warning"}:
+        outcome, reason, severity = "WARNING", "IOT_STATUS_WARNING", "MEDIUM"
+    elif payload.metric == SensorMetric.SMOKE and payload.value > 0:
+        outcome, reason, severity = "ALERT", "SENSOR_THRESHOLD_CRITICAL", "CRITICAL"
+    elif payload.metric == SensorMetric.TEMPERATURE and payload.value >= 40:
+        outcome, reason, severity = "ALERT", "SENSOR_THRESHOLD_CRITICAL", "CRITICAL"
+    elif payload.metric == SensorMetric.TEMPERATURE and payload.value >= 35:
+        outcome, reason, severity = "WARNING", "SENSOR_THRESHOLD_WARNING", "MEDIUM"
+    else:
+        outcome, reason, severity = "NORMAL", "SENSOR_NORMAL", "LOW"
+
+    decision_id = str(uuid4())
+    alert_id = (
+        create_alert(
+            decision_id,
+            severity,
+            (
+                f"IoT {event.status} event for {event.deviceId} at {event.location}: "
+                f"{event.reason}."
+            ),
+        )
+        if outcome != "NORMAL"
+        else None
+    )
+    result = {
+        "decisionId": decision_id,
+        "requestId": str(payload.requestId),
+        "outcome": outcome,
+        "reasonCode": reason,
+        "policyId": SENSOR_POLICY_ID,
+        "alertId": alert_id,
+        "evaluatedAt": iso(utc_now()),
+        "iotEventId": event.eventId,
+        "deviceId": event.deviceId,
+        "location": event.location,
+        "status": event.status,
+        "alertLevel": event.alertLevel,
+        "reason": event.reason,
+    }
+    decisions[decision_id] = result
+    persist_decision(result)
+    publish_audit_event({"eventType": "policy.decision.created", "payload": result})
+    remember(idempotency_key, result)
+    return result
 
 
 def record_mqtt_event(record: dict[str, Any]) -> None:
@@ -440,7 +517,18 @@ def process_iot_mqtt_message(topic: str, qos: int, payload_bytes: bytes) -> None
         raw_payload = json.loads(payload_bytes.decode("utf-8"))
         event = IotMqttSensorEvent.model_validate(raw_payload)
         sensor_request = iot_event_to_sensor_request(event)
-        result = evaluate_sensor(sensor_request, f"mqtt:{event.eventId}")
+        print(
+            (
+                f"received sensor event from {event.sourceService} "
+                f"deviceId={event.deviceId} status={event.status} reason={event.reason}"
+            ),
+            flush=True,
+        )
+        result = evaluate_iot_sensor_event(event, sensor_request, f"mqtt:{event.eventId}")
+        if result.get("alertId"):
+            print(f"created alert alertId={result['alertId']}", flush=True)
+        else:
+            print(f"processed sensor event without alert outcome={result['outcome']}", flush=True)
         correlation_id = str(uuid5(NAMESPACE_URL, f"mqtt:{event.eventId}"))
         status = "processed"
         try:

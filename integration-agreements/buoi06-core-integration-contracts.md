@@ -54,6 +54,21 @@ Core maps this payload to an internal `SensorEvaluationRequest`, evaluates the
 temperature policy, creates an alert, and forwards the result to Analytics and
 Notification when configured.
 
+Core accepts the minimal team-iot camelCase payload even when `timestamp` and
+`rawEventId` are omitted. Policy rules:
+
+- `status=danger` creates an `ALERT`.
+- `status=warning` creates a `WARNING` alert.
+- `reason=smoke_detected` creates a critical alert.
+- `motionDetected=true` outside 07:00-18:00 creates an unusual-motion alert.
+
+Expected Core log:
+
+```text
+received sensor event from team-iot deviceId=esp32-lab-a101 status=danger reason=temperature_too_high
+created alert alertId=<uuid>
+```
+
 ## AI Vision to Core
 
 - `POST /api/v1/detections`

@@ -1,0 +1,52 @@
+{
+    "testedAt":  "2026-06-18T01:37:05.8699706Z",
+    "topic":  "smart-campus/events/sensor",
+    "qos":  1,
+    "health":  {
+                   "status":  "ok",
+                   "service":  "core-business",
+                   "version":  "1.0.0",
+                   "policyStore":  "ready"
+               },
+    "mqttStatus":  {
+                       "enabled":  true,
+                       "connected":  true,
+                       "host":  "mqtt-broker",
+                       "port":  1883,
+                       "topic":  "smart-campus/events/sensor",
+                       "qos":  1,
+                       "receivedCount":  3
+                   },
+    "cases":  [
+                  {
+                      "mqttEventId":  "iot-motion-1781746581349",
+                      "status":  "processed",
+                      "inputStatus":  "normal",
+                      "inputReason":  "motion_detected",
+                      "outcome":  "ALERT",
+                      "reasonCode":  "IOT_MOTION_DETECTED_OUT_OF_HOURS",
+                      "alertId":  "6d0a6e37-0489-4eb1-9bf0-7e2201c60bd7",
+                      "notification":  "accepted"
+                  },
+                  {
+                      "mqttEventId":  "iot-smoke-1781746581349",
+                      "status":  "processed",
+                      "inputStatus":  "danger",
+                      "inputReason":  "smoke_detected",
+                      "outcome":  "ALERT",
+                      "reasonCode":  "IOT_SMOKE_DETECTED_CRITICAL",
+                      "alertId":  "8e408b8c-c6f2-4b01-9956-db316499cf16",
+                      "notification":  "accepted"
+                  },
+                  {
+                      "mqttEventId":  "iot-warning-1781746581349",
+                      "status":  "processed",
+                      "inputStatus":  "warning",
+                      "inputReason":  "temperature_high",
+                      "outcome":  "WARNING",
+                      "reasonCode":  "IOT_STATUS_WARNING",
+                      "alertId":  "801d932c-2c25-45e6-a476-6f1f3303929f",
+                      "notification":  "accepted"
+                  }
+              ]
+}
