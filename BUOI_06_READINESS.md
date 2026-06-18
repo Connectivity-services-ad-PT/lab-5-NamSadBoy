@@ -28,6 +28,7 @@ Core calls these providers:
 |---|---|---|
 | Notification | `NOTIFICATION_SERVICE_URL`, `NOTIFICATION_PATH`, `NOTIFICATION_AUTH_TOKEN` | configurable, default `POST /api/v1/notifications` |
 | Analytics | `ANALYTICS_SERVICE_URL`, `ANALYTICS_PATH`, `ANALYTICS_AUTH_TOKEN` | configurable, default `POST /api/v1/events` |
+| Access Gate | `ACCESS_GATE_SERVICE_URL`, `ACCESS_GATE_PATH`, `ACCESS_GATE_AUTH_TOKEN` | configurable, default `POST /api/v1/access-logs/query` |
 
 At home both variables point to `partner-service:9100`. For cross-team testing,
 edit `.env` to use the partners' Radmin IP addresses, for example:
@@ -39,6 +40,9 @@ NOTIFICATION_AUTH_TOKEN=<token-from-notification-team>
 ANALYTICS_SERVICE_URL=http://<RADMIN_IP_TEAM_ANALYTICS>:8000
 ANALYTICS_PATH=/api/v1/events
 ANALYTICS_AUTH_TOKEN=
+ACCESS_GATE_SERVICE_URL=http://<RADMIN_IP_TEAM_GATE>:8000
+ACCESS_GATE_PATH=/api/v1/access-logs/query
+ACCESS_GATE_AUTH_TOKEN=
 PARTNER_TIMEOUT_SECONDS=3
 PARTNER_RETRY_COUNT=0
 ```

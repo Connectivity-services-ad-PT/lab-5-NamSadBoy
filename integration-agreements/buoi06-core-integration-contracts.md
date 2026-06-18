@@ -111,6 +111,28 @@ and forwards the result to Analytics and Notification when configured.
 {"requestId":"40fd107d-d34a-4f48-833d-26335f6a18ec","cardId":"CARD-060001","gateId":"GATE-A1","direction":"ENTRY","occurredAt":"2026-06-13T08:00:00Z","subject":{"subjectId":"EMP-0601","role":"STAFF","cardStatus":"ACTIVE","zone":"ADMIN"}}
 ```
 
+## Core to Access Gate
+
+- Core test endpoint: `POST /api/v1/access-gate/log-query`
+- Provider URL: `${ACCESS_GATE_SERVICE_URL}`
+- Provider path: `${ACCESS_GATE_PATH}` (default `/api/v1/access-logs/query`)
+- Auth: `Authorization: Bearer ${ACCESS_GATE_AUTH_TOKEN}` when configured
+
+Core receives a log query request, forwards it to Access Gate, and returns the
+provider response for evidence.
+
+```json
+{
+  "requestId": "73dcbb01-069a-4b6b-9d19-3ec3c80c1340",
+  "cardId": "CARD-060001",
+  "gateId": "GATE-A1",
+  "direction": "ENTRY",
+  "from": "2026-06-18T09:00:00+07:00",
+  "to": "2026-06-18T10:00:00+07:00",
+  "limit": 20
+}
+```
+
 ## Core to Notification
 
 - Provider URL: `${NOTIFICATION_SERVICE_URL}`

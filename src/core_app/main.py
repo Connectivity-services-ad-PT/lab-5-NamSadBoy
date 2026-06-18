@@ -43,6 +43,14 @@ ANALYTICS_PATH = os.getenv("ANALYTICS_PATH", "/api/v1/events")
 if not ANALYTICS_PATH.startswith("/"):
     ANALYTICS_PATH = f"/{ANALYTICS_PATH}"
 ANALYTICS_AUTH_TOKEN = os.getenv("ANALYTICS_AUTH_TOKEN") or None
+ACCESS_GATE_SERVICE_URL = os.getenv(
+    "ACCESS_GATE_SERVICE_URL",
+    "http://partner-service:9100",
+).rstrip("/")
+ACCESS_GATE_PATH = os.getenv("ACCESS_GATE_PATH", "/api/v1/access-logs/query")
+if not ACCESS_GATE_PATH.startswith("/"):
+    ACCESS_GATE_PATH = f"/{ACCESS_GATE_PATH}"
+ACCESS_GATE_AUTH_TOKEN = os.getenv("ACCESS_GATE_AUTH_TOKEN") or None
 PARTNER_TIMEOUT_SECONDS = float(os.getenv("PARTNER_TIMEOUT_SECONDS", "3"))
 PARTNER_RETRY_COUNT = int(os.getenv("PARTNER_RETRY_COUNT", "0"))
 MQTT_ENABLED = os.getenv("MQTT_ENABLED", "true").lower() == "true"
@@ -181,6 +189,16 @@ class AccessEvaluationRequest(BaseModel):
     direction: Direction
     occurredAt: datetime
     subject: AccessSubject
+
+
+class AccessGateLogQuery(BaseModel):
+    requestId: UUID
+    cardId: str = Field(pattern=r"^CARD-[A-Z0-9]{6,20}$")
+    gateId: str = Field(pattern=r"^GATE-[A-Z0-9-]{2,20}$")
+    direction: Direction
+    from_: datetime = Field(alias="from")
+    to: datetime
+    limit: int = Field(default=20, ge=1, le=100)
 
 
 class SensorMetric(str, Enum):
@@ -836,6 +854,7 @@ def partners_health() -> dict[str, Any]:
     partners = [
         http_partner_health("notification", NOTIFICATION_SERVICE_URL),
         http_partner_health("analytics", ANALYTICS_SERVICE_URL),
+        http_partner_health("access-gate", ACCESS_GATE_SERVICE_URL),
         {
             "name": "mqtt",
             "ok": (not MQTT_ENABLED) or mqtt_connected,
@@ -1098,6 +1117,34 @@ def ingest_access_event(
         result,
         request_correlation_id,
     )
+
+
+@app.post(
+    "/api/v1/access-gate/log-query",
+    tags=["Integration"],
+    dependencies=[Depends(require_auth)],
+)
+def query_access_gate_logs(
+    payload: AccessGateLogQuery,
+    correlation_id: str | None = Header(default=None, alias="X-Correlation-Id"),
+) -> dict[str, Any]:
+    request_correlation_id = correlation_id or str(uuid4())
+    payload_json = payload.model_dump(mode="json", by_alias=True)
+    delivery = deliver_to_partner(
+        "access-gate",
+        ACCESS_GATE_SERVICE_URL,
+        ACCESS_GATE_PATH,
+        payload_json,
+        request_correlation_id,
+        ACCESS_GATE_AUTH_TOKEN,
+    )
+    return {
+        "eventType": "access-gate-log-query",
+        "status": "processed",
+        "correlationId": request_correlation_id,
+        "request": payload_json,
+        "delivery": delivery,
+    }
 
 
 @app.post(
