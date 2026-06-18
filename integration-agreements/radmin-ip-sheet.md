@@ -32,7 +32,11 @@ Nếu provider dùng REST qua Radmin:
 
 ```env
 NOTIFICATION_SERVICE_URL=http://<RADMIN_IP_TEAM_NOTIFICATION>:8000
+NOTIFICATION_PATH=/events/alert.created
+NOTIFICATION_AUTH_TOKEN=<token-from-notification-team>
 ANALYTICS_SERVICE_URL=http://<RADMIN_IP_TEAM_ANALYTICS>:8000
+ANALYTICS_PATH=/api/v1/events
+ANALYTICS_AUTH_TOKEN=
 PARTNER_TIMEOUT_SECONDS=3
 PARTNER_RETRY_COUNT=0
 ```
@@ -79,4 +83,3 @@ Nếu local `/health` OK nhưng máy khác timeout, kiểm tra theo thứ tự:
 3. Windows Firewall đã mở port chưa.
 4. Hai máy có cùng Radmin Network không.
 5. URL trong `.env` có dùng đúng Radmin IP không.
-

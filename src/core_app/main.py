@@ -31,10 +31,18 @@ NOTIFICATION_SERVICE_URL = os.getenv(
     "NOTIFICATION_SERVICE_URL",
     "http://partner-service:9100",
 ).rstrip("/")
+NOTIFICATION_PATH = os.getenv("NOTIFICATION_PATH", "/api/v1/notifications")
+if not NOTIFICATION_PATH.startswith("/"):
+    NOTIFICATION_PATH = f"/{NOTIFICATION_PATH}"
+NOTIFICATION_AUTH_TOKEN = os.getenv("NOTIFICATION_AUTH_TOKEN") or None
 ANALYTICS_SERVICE_URL = os.getenv(
     "ANALYTICS_SERVICE_URL",
     "http://partner-service:9100",
 ).rstrip("/")
+ANALYTICS_PATH = os.getenv("ANALYTICS_PATH", "/api/v1/events")
+if not ANALYTICS_PATH.startswith("/"):
+    ANALYTICS_PATH = f"/{ANALYTICS_PATH}"
+ANALYTICS_AUTH_TOKEN = os.getenv("ANALYTICS_AUTH_TOKEN") or None
 PARTNER_TIMEOUT_SECONDS = float(os.getenv("PARTNER_TIMEOUT_SECONDS", "3"))
 PARTNER_RETRY_COUNT = int(os.getenv("PARTNER_RETRY_COUNT", "0"))
 MQTT_ENABLED = os.getenv("MQTT_ENABLED", "true").lower() == "true"
@@ -544,16 +552,22 @@ def deliver_to_partner(
     path: str,
     payload: dict[str, Any],
     correlation_id: str,
+    auth_token: str | None = None,
 ) -> dict[str, Any]:
     attempts = PARTNER_RETRY_COUNT + 1
     last_detail = "Partner service is unavailable."
 
     for attempt in range(1, attempts + 1):
         try:
+            headers = {"X-Correlation-Id": correlation_id}
+            if auth_token:
+                headers["Authorization"] = (
+                    auth_token if auth_token.lower().startswith("bearer ") else f"Bearer {auth_token}"
+                )
             response = httpx.post(
                 f"{base_url}{path}",
                 json=payload,
-                headers={"X-Correlation-Id": correlation_id},
+                headers=headers,
                 timeout=PARTNER_TIMEOUT_SECONDS,
             )
             response.raise_for_status()
@@ -609,23 +623,31 @@ def deliver_integration_result(
         "analytics": deliver_to_partner(
             "analytics",
             ANALYTICS_SERVICE_URL,
-            "/api/v1/events",
+            ANALYTICS_PATH,
             analytics_payload,
             correlation_id,
+            ANALYTICS_AUTH_TOKEN,
         ),
         "notification": {"provider": "notification", "status": "skipped"},
     }
 
     if result.get("alertId"):
+        notification_id = str(uuid4())
         notification_payload = {
-            "notificationId": str(uuid4()),
+            "eventId": notification_id,
+            "notificationId": notification_id,
+            "eventType": "core.alert.created",
             "source": SERVICE_NAME,
+            "sourceService": "team-core",
             "channel": "MULTI",
             "severity": "HIGH",
             "title": f"Core policy alert: {event_type}",
             "message": result.get("reasonCode", "Policy alert generated."),
             "correlationId": correlation_id,
+            "timestamp": iso(utc_now()),
             "createdAt": iso(utc_now()),
+            "alertId": result["alertId"],
+            "recipientGroup": "security-ops",
             "metadata": {
                 "alertId": result["alertId"],
                 "decisionId": result["decisionId"],
@@ -634,9 +656,10 @@ def deliver_integration_result(
         deliveries["notification"] = deliver_to_partner(
             "notification",
             NOTIFICATION_SERVICE_URL,
-            "/api/v1/notifications",
+            NOTIFICATION_PATH,
             notification_payload,
             correlation_id,
+            NOTIFICATION_AUTH_TOKEN,
         )
 
     return deliveries

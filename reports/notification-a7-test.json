@@ -1,0 +1,15 @@
+{
+    "notificationProvider":  "http://26.95.36.20:8000",
+    "path":  "/events/alert.created",
+    "coreResult":  {
+                       "alertId":  "677bc548-9efc-49d6-a96a-3abd8a2bdedd",
+                       "notificationStatus":  "accepted",
+                       "providerStatus":  "queued",
+                       "outcome":  "ALERT",
+                       "decisionId":  "34f2cacc-a54b-44b4-8109-60a932c48029",
+                       "providerEventId":  "333aee5c-4164-44d5-b3aa-6c60572ccb40",
+                       "notificationStatusCode":  202
+                   },
+    "testedAt":  "2026-06-18T01:24:00.1987173Z",
+    "auth":  "Authorization: Bearer <redacted>"
+}

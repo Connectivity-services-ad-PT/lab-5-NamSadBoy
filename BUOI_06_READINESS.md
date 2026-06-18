@@ -25,15 +25,19 @@ Core calls these providers:
 
 | Provider | Environment variable | Path |
 |---|---|---|
-| Notification | `NOTIFICATION_SERVICE_URL` | `POST /api/v1/notifications` |
-| Analytics | `ANALYTICS_SERVICE_URL` | `POST /api/v1/events` |
+| Notification | `NOTIFICATION_SERVICE_URL`, `NOTIFICATION_PATH`, `NOTIFICATION_AUTH_TOKEN` | configurable, default `POST /api/v1/notifications` |
+| Analytics | `ANALYTICS_SERVICE_URL`, `ANALYTICS_PATH`, `ANALYTICS_AUTH_TOKEN` | configurable, default `POST /api/v1/events` |
 
 At home both variables point to `partner-service:9100`. For cross-team testing,
 edit `.env` to use the partners' Radmin IP addresses, for example:
 
 ```env
 NOTIFICATION_SERVICE_URL=http://<RADMIN_IP_TEAM_NOTIFICATION>:8000
+NOTIFICATION_PATH=/events/alert.created
+NOTIFICATION_AUTH_TOKEN=<token-from-notification-team>
 ANALYTICS_SERVICE_URL=http://<RADMIN_IP_TEAM_ANALYTICS>:8000
+ANALYTICS_PATH=/api/v1/events
+ANALYTICS_AUTH_TOKEN=
 PARTNER_TIMEOUT_SECONDS=3
 PARTNER_RETRY_COUNT=0
 ```

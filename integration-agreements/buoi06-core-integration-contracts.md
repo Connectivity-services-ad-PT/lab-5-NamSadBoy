@@ -75,14 +75,16 @@ Notification when configured.
 ## Core to Notification
 
 - Provider URL: `${NOTIFICATION_SERVICE_URL}`
-- `POST /api/v1/notifications`
+- Path: `${NOTIFICATION_PATH}` (default `/api/v1/notifications`)
+- Auth: `Authorization: Bearer ${NOTIFICATION_AUTH_TOKEN}` when configured
 - Expected success: any `2xx`, recommended `202`
 - Called only when Core creates an alert.
 
 ## Core to Analytics
 
 - Provider URL: `${ANALYTICS_SERVICE_URL}`
-- `POST /api/v1/events`
+- Path: `${ANALYTICS_PATH}` (default `/api/v1/events`)
+- Auth: `Authorization: Bearer ${ANALYTICS_AUTH_TOKEN}` when configured
 - Expected success: any `2xx`, recommended `202`
 - Called for every processed access, sensor, or detection event.
 
