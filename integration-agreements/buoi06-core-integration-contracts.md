@@ -78,6 +78,30 @@ created alert alertId=<uuid>
 {"requestId":"8de888d9-a133-473e-a0d9-060af8e911af","detectionId":"8d424c77-2298-48f5-8b28-291eea122bcb","cameraId":"CAMERA-B6-01","label":"UNKNOWN_PERSON","confidence":0.96,"occurredAt":"2026-06-13T08:02:00Z"}
 ```
 
+Team Vision can also send its current result callback payload to Core:
+
+- `POST /api/v1/vision-results`
+- Success: `202 Accepted`
+- Headers: `Authorization: Bearer <AUTH_TOKEN>`, `Content-Type: application/json`
+
+```json
+{
+  "request_id": "vision-request-001",
+  "camera_id": "cam-01",
+  "location": "Gate A",
+  "analysis": {
+    "confidence": 0.96,
+    "timestamp": "2026-06-18T09:10:00+07:00"
+  },
+  "labels": ["unknown_person"],
+  "risk_level": "high",
+  "summary": "Unknown person detected at Gate A"
+}
+```
+
+Core maps this to detection policy, creates a policy decision/alert when needed,
+and forwards the result to Analytics and Notification when configured.
+
 ## Access Gate to Core
 
 - `POST /api/v1/access-events`

@@ -199,6 +199,34 @@ paths:
           $ref: "#/components/responses/UnprocessableEntity"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/vision-results:
+    post:
+      tags: [Integration]
+      summary: Process an AI Vision result
+      description: Accepts the snake_case result payload emitted by team-vision and maps it to Core detection policy.
+      operationId: ingestVisionResult
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VisionResultRequest"
+      responses:
+        "202":
+          description: Vision result accepted and processed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /policies/evaluate-access:
     post:
       tags: [Policies]
@@ -826,6 +854,42 @@ components:
         occurredAt:
           type: string
           format: date-time
+    VisionResultRequest:
+      type: object
+      additionalProperties: false
+      required: [request_id, camera_id, location, analysis, labels, summary]
+      properties:
+        request_id:
+          type: string
+          minLength: 3
+          maxLength: 128
+        camera_id:
+          type: string
+          minLength: 2
+          maxLength: 64
+        location:
+          type: string
+          minLength: 1
+          maxLength: 128
+        analysis:
+          type: object
+          additionalProperties: true
+        labels:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - type: object
+                additionalProperties: true
+        risk_level:
+          type: string
+          default: medium
+          minLength: 2
+          maxLength: 32
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 500
     DetectionDecision:
       type: object
       additionalProperties: false

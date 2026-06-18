@@ -19,6 +19,7 @@ the Core demo laptop. Allow inbound TCP 8000 in Windows Firewall.
 | IoT Ingestion | MQTT publish `smart-campus/events/sensor` | Core logs event in `/mqtt/events` |
 | IoT Ingestion fallback | `POST /api/v1/sensor-events` | `202` |
 | AI Vision | `POST /api/v1/detections` | `202` |
+| AI Vision result callback | `POST /api/v1/vision-results` | `202` |
 | Access Gate | `POST /api/v1/access-events` | `200` |
 
 Core calls these providers:

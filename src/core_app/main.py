@@ -223,6 +223,16 @@ class DetectionEvaluationRequest(BaseModel):
     occurredAt: datetime
 
 
+class VisionResultRequest(BaseModel):
+    request_id: str = Field(min_length=3, max_length=128)
+    camera_id: str = Field(min_length=2, max_length=64)
+    location: str = Field(min_length=1, max_length=128)
+    analysis: dict[str, Any] = Field(default_factory=dict)
+    labels: list[Any] = Field(default_factory=list)
+    risk_level: str = Field(default="medium", min_length=2, max_length=32)
+    summary: str = Field(min_length=1, max_length=500)
+
+
 class PolicyCreateRequest(BaseModel):
     name: str = Field(min_length=3, max_length=100)
     description: str | None = Field(default=None, max_length=500)
@@ -395,6 +405,12 @@ def normalize_sensor_id(device_id: str) -> str:
     normalized = re.sub(r"[^A-Z0-9-]+", "-", device_id.upper()).strip("-")
     normalized = normalized[:17] or "UNKNOWN"
     return f"SENSOR-{normalized}"
+
+
+def normalize_camera_id(camera_id: str) -> str:
+    normalized = re.sub(r"[^A-Z0-9-]+", "-", camera_id.upper()).strip("-")
+    normalized = normalized[:17] or "UNKNOWN"
+    return f"CAMERA-{normalized}"
 
 
 def iot_event_to_sensor_request(event: IotMqttSensorEvent) -> SensorEvaluationRequest:
@@ -1020,6 +1036,50 @@ def evaluate_detection(
     return result
 
 
+def vision_result_to_detection_request(payload: VisionResultRequest) -> DetectionEvaluationRequest:
+    raw_labels = payload.labels or payload.analysis.get("labels") or []
+    labels = set()
+    for raw_label in raw_labels:
+        label_value = raw_label.get("label") if isinstance(raw_label, dict) else raw_label
+        if label_value:
+            labels.add(str(label_value).upper().replace(" ", "_").replace("-", "_"))
+    summary = payload.summary.lower()
+    risk_level = payload.risk_level.lower()
+
+    if labels & {"FIRE", "FLAME"} or "fire" in summary:
+        label = DetectionLabel.FIRE
+    elif labels & {"SMOKE"} or "smoke" in summary:
+        label = DetectionLabel.SMOKE
+    elif labels & {"UNKNOWN_PERSON", "STRANGER", "INTRUDER", "PERSON"}:
+        label = DetectionLabel.UNKNOWN_PERSON
+    elif labels & {"CROWD", "CROWD_DETECTED"}:
+        label = DetectionLabel.CROWD
+    else:
+        label = DetectionLabel.AUTHORIZED_PERSON
+
+    confidence = payload.analysis.get("confidence")
+    if confidence is None:
+        confidence = payload.analysis.get("score")
+    if confidence is None:
+        confidence = 0.95 if risk_level in {"high", "critical"} else 0.7
+    confidence = max(0, min(1, float(confidence)))
+
+    request_id = uuid5(NAMESPACE_URL, f"vision:{payload.request_id}")
+    detection_id = uuid5(
+        NAMESPACE_URL,
+        f"vision:{payload.request_id}:{payload.camera_id}:{payload.summary}",
+    )
+    occurred_at = payload.analysis.get("timestamp") or payload.analysis.get("occurredAt")
+    return DetectionEvaluationRequest(
+        requestId=request_id,
+        detectionId=detection_id,
+        cameraId=normalize_camera_id(payload.camera_id),
+        label=label,
+        confidence=confidence,
+        occurredAt=datetime.fromisoformat(occurred_at) if occurred_at else utc_now(),
+    )
+
+
 @app.post(
     "/api/v1/access-events",
     tags=["Integration"],
@@ -1080,6 +1140,30 @@ def ingest_detection_event(
         result,
         request_correlation_id,
     )
+
+
+@app.post(
+    "/api/v1/vision-results",
+    status_code=202,
+    tags=["Integration"],
+    dependencies=[Depends(require_auth)],
+)
+def ingest_vision_result(
+    payload: VisionResultRequest,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    correlation_id: str | None = Header(default=None, alias="X-Correlation-Id"),
+) -> dict[str, Any]:
+    request_correlation_id = correlation_id or str(uuid4())
+    detection_payload = vision_result_to_detection_request(payload)
+    result = evaluate_detection(detection_payload, idempotency_key)
+    response = integration_response(
+        "vision-result",
+        detection_payload,
+        result,
+        request_correlation_id,
+    )
+    response["sourceVisionResult"] = payload.model_dump(mode="json")
+    return response
 
 
 @app.post("/policies", status_code=201, tags=["Policies"], dependencies=[Depends(require_auth)])

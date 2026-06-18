@@ -1,0 +1,17 @@
+{
+    "testedAt":  "2026-06-18T02:11:58.2728514Z",
+    "visionService":  {
+                          "health":  "GET http://26.211.94.249:8000/health -\u003e 200 OK",
+                          "analyze":  "POST http://26.211.94.249:8000/api/v1/vision/analyze -\u003e 200 OK"
+                      },
+    "coreCallback":  {
+                         "endpoint":  "POST http://localhost:8000/api/v1/vision-results",
+                         "publicEndpoint":  "POST http://26.183.48.228:8000/api/v1/vision-results",
+                         "auth":  "Authorization: Bearer lab-core-token",
+                         "status":  "processed",
+                         "outcome":  "ALERT",
+                         "reasonCode":  "UNKNOWN_PERSON_HIGH_CONFIDENCE",
+                         "analytics":  "accepted",
+                         "notification":  "accepted"
+                     }
+}
