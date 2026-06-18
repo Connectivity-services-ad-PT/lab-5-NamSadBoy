@@ -116,10 +116,20 @@ and forwards the result to Analytics and Notification when configured.
 - Core test endpoint: `POST /api/v1/access-gate/log-query`
 - Provider URL: `${ACCESS_GATE_SERVICE_URL}`
 - Provider path: `${ACCESS_GATE_PATH}` (default `/api/v1/access-logs/query`)
+- Provider method: `${ACCESS_GATE_METHOD}` (default `POST`; team Gate uses `GET`)
 - Auth: `Authorization: Bearer ${ACCESS_GATE_AUTH_TOKEN}` when configured
 
 Core receives a log query request, forwards it to Access Gate, and returns the
 provider response for evidence.
+
+Team Gate live configuration:
+
+```env
+ACCESS_GATE_SERVICE_URL=http://26.150.185.206:8000
+ACCESS_GATE_PATH=/access-events
+ACCESS_GATE_AUTH_TOKEN=local-dev-token
+ACCESS_GATE_METHOD=GET
+```
 
 ```json
 {

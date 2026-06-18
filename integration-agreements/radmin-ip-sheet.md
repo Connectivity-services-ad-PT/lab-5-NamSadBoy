@@ -22,7 +22,7 @@ VPN. REST gọi qua Radmin IP; MQTT vẫn đi qua broker cloud như HiveMQ.
 | team-iot | IoT Ingestion | `26.__.__.__` | `8000` | `http://26.__.__.__:8000/health` | MQTT publish sang Core qua HiveMQ |
 | team-camera | Camera Stream | `26.__.__.__` | `8000` | `http://26.__.__.__:8000/health` | Gọi AI Vision |
 | team-ai-vision | AI Vision | `26.__.__.__` | `8000` | `http://26.__.__.__:8000/health` | Provider REST cho Core |
-| team-access-gate | Access Gate | `26.__.__.__` | `8000` | `http://26.__.__.__:8000/health` | Provider REST cho Core |
+| team-access-gate | Access Gate | `26.150.185.206` | `8000` | `http://26.150.185.206:8000/health` | Provider REST cho Core, `GET /access-events` |
 | team-notification | Notification | `26.__.__.__` | `8000` | `http://26.__.__.__:8000/health` | Có thể REST hoặc MQTT tùy contract |
 | team-analytics | Analytics | `26.__.__.__` | `8000` | `http://26.__.__.__:8000/health` | Có thể REST hoặc MQTT tùy contract |
 

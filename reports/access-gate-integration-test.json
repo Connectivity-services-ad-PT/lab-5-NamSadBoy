@@ -1,0 +1,31 @@
+{
+  "testedAt": "2026-06-18T09:48:00+07:00",
+  "consumer": "team-core",
+  "provider": "team-access-gate",
+  "providerBaseUrl": "http://26.150.185.206:8000",
+  "providerEndpoint": "GET /access-events?limit=10",
+  "auth": "Bearer <redacted>",
+  "directProviderTest": {
+    "status": "ok",
+    "statusCode": 200,
+    "total": 3
+  },
+  "coreForwardTest": {
+    "coreEndpoint": "POST http://localhost:8000/api/v1/access-gate/log-query",
+    "status": "processed",
+    "delivery": {
+      "provider": "access-gate",
+      "status": "accepted",
+      "statusCode": 200,
+      "method": "GET",
+      "providerResponseTotal": 10
+    }
+  },
+  "partnersHealth": {
+    "url": "http://localhost:8000/partners/health",
+    "accessGate": {
+      "ok": true,
+      "statusCode": 200
+    }
+  }
+}

@@ -116,14 +116,14 @@ Nhóm được gọi (provider): `team-access-gate`
 URL provider:
 
 ```text
-http://<RADMIN_IP_TEAM_ACCESS_GATE>:<PORT>
+http://26.150.185.206:8000
 ```
 
 Endpoint sẽ gọi:
 
 ```text
-METHOD: POST
-PATH:   /api/v1/access-logs/query
+METHOD: GET
+PATH:   /access-events?limit=10
 ```
 
 Mục đích:
@@ -135,39 +135,27 @@ Core lấy log quẹt thẻ / thông tin subject từ Access Gate để kiểm t
 Request mẫu:
 
 ```json
-{
-  "requestId": "access-query-001",
-  "sourceService": "team-core",
-  "cardId": "CARD-060001",
-  "gateId": "GATE-A1",
-  "direction": "ENTRY",
-  "from": "2026-06-17T14:00:00+07:00",
-  "to": "2026-06-17T14:30:10+07:00",
-  "limit": 20
-}
+curl -X GET "http://26.150.185.206:8000/access-events?limit=10" -H "Authorization: Bearer local-dev-token"
 ```
 
 Response mong đợi:
 
 ```json
 {
-  "requestId": "access-query-001",
-  "status": "found",
   "items": [
     {
-      "eventId": "access-log-001",
-      "cardId": "CARD-060001",
-      "gateId": "GATE-A1",
-      "direction": "ENTRY",
-      "occurredAt": "2026-06-17T14:29:55+07:00",
-      "subject": {
-        "subjectId": "EMP-0601",
-        "role": "STAFF",
-        "cardStatus": "ACTIVE",
-        "zone": "ADMIN"
-      }
+      "event_id": "EVT-20260618-0001",
+      "card_id": "CARD-04A1B2C3D406",
+      "gate_id": "GATE-01",
+      "direction": "in",
+      "result": "accepted",
+      "deny_reason": null,
+      "zone_id": "ZONE-A",
+      "timestamp": "2026-06-18T09:30:00Z",
+      "created_at": "2026-06-18T09:30:01Z"
     }
-  ]
+  ],
+  "total": 1
 }
 ```
 
@@ -179,7 +167,7 @@ Core ghi log ACCESS_GATE_PROVIDER_UNAVAILABLE và trả trạng thái partner ok
 trong /partners/health, không làm treo /health.
 ```
 
-Đã test `GET http://<RADMIN_IP_TEAM_ACCESS_GATE>:<PORT>/health`: `[ ]` Rồi   `[ ]` Chưa
+Đã test `GET http://26.150.185.206:8000/health`: `[ ]` Rồi   `[ ]` Chưa
 
 ---
 

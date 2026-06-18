@@ -147,7 +147,7 @@ paths:
     post:
       tags: [Integration]
       summary: Query Access Gate logs through Core
-      description: Core forwards this request to the configured Access Gate provider for log or permission evidence.
+      description: Core forwards this request to the configured Access Gate provider for log or permission evidence. The provider method and path are configured by ACCESS_GATE_METHOD and ACCESS_GATE_PATH.
       operationId: queryAccessGateLogs
       parameters:
         - $ref: "#/components/parameters/CorrelationId"

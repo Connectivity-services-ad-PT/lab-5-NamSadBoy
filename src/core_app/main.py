@@ -51,6 +51,7 @@ ACCESS_GATE_PATH = os.getenv("ACCESS_GATE_PATH", "/api/v1/access-logs/query")
 if not ACCESS_GATE_PATH.startswith("/"):
     ACCESS_GATE_PATH = f"/{ACCESS_GATE_PATH}"
 ACCESS_GATE_AUTH_TOKEN = os.getenv("ACCESS_GATE_AUTH_TOKEN") or None
+ACCESS_GATE_METHOD = os.getenv("ACCESS_GATE_METHOD", "POST").upper()
 PARTNER_TIMEOUT_SECONDS = float(os.getenv("PARTNER_TIMEOUT_SECONDS", "3"))
 PARTNER_RETRY_COUNT = int(os.getenv("PARTNER_RETRY_COUNT", "0"))
 MQTT_ENABLED = os.getenv("MQTT_ENABLED", "true").lower() == "true"
@@ -675,9 +676,12 @@ def deliver_to_partner(
     payload: dict[str, Any],
     correlation_id: str,
     auth_token: str | None = None,
+    method: str = "POST",
+    query_params: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     attempts = PARTNER_RETRY_COUNT + 1
     last_detail = "Partner service is unavailable."
+    request_method = method.upper()
 
     for attempt in range(1, attempts + 1):
         try:
@@ -686,18 +690,34 @@ def deliver_to_partner(
                 headers["Authorization"] = (
                     auth_token if auth_token.lower().startswith("bearer ") else f"Bearer {auth_token}"
                 )
-            response = httpx.post(
-                f"{base_url}{path}",
-                json=payload,
-                headers=headers,
-                timeout=PARTNER_TIMEOUT_SECONDS,
-            )
+            if request_method == "GET":
+                response = httpx.get(
+                    f"{base_url}{path}",
+                    params=query_params or payload,
+                    headers=headers,
+                    timeout=PARTNER_TIMEOUT_SECONDS,
+                )
+            elif request_method == "POST":
+                response = httpx.post(
+                    f"{base_url}{path}",
+                    json=payload,
+                    headers=headers,
+                    timeout=PARTNER_TIMEOUT_SECONDS,
+                )
+            else:
+                raise ProblemError(
+                    500,
+                    "Invalid partner method",
+                    f"{provider} method {request_method} is not supported.",
+                    "invalid-partner-method",
+                )
             response.raise_for_status()
             body = response.json() if response.content else {}
             return {
                 "provider": provider,
                 "status": "accepted",
                 "statusCode": response.status_code,
+                "method": request_method,
                 "providerResponse": body,
             }
         except httpx.TimeoutException:
@@ -1130,6 +1150,7 @@ def query_access_gate_logs(
 ) -> dict[str, Any]:
     request_correlation_id = correlation_id or str(uuid4())
     payload_json = payload.model_dump(mode="json", by_alias=True)
+    query_params = {"limit": payload.limit} if ACCESS_GATE_METHOD == "GET" else None
     delivery = deliver_to_partner(
         "access-gate",
         ACCESS_GATE_SERVICE_URL,
@@ -1137,6 +1158,8 @@ def query_access_gate_logs(
         payload_json,
         request_correlation_id,
         ACCESS_GATE_AUTH_TOKEN,
+        ACCESS_GATE_METHOD,
+        query_params,
     )
     return {
         "eventType": "access-gate-log-query",
