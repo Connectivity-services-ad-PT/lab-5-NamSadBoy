@@ -23,7 +23,7 @@ VPN. REST gọi qua Radmin IP; MQTT vẫn đi qua broker cloud như HiveMQ.
 | team-camera | Camera Stream | `26.__.__.__` | `8000` | `http://26.__.__.__:8000/health` | Gọi AI Vision |
 | team-ai-vision | AI Vision | `26.__.__.__` | `8000` | `http://26.__.__.__:8000/health` | Provider REST cho Core |
 | team-access-gate | Access Gate | `26.150.185.206` | `8000` | `http://26.150.185.206:8000/health` | Provider REST cho Core, `GET /access-events` |
-| team-notification | Notification | `26.__.__.__` | `8000` | `http://26.__.__.__:8000/health` | Có thể REST hoặc MQTT tùy contract |
+| team-notification | Notification | `26.95.36.20` | `8000` | `http://26.95.36.20:8000/health` | Provider REST cho Core, `POST /events/alert.created` |
 | team-analytics | Analytics | `26.22.249.37` | `8000` | `http://26.22.249.37:8000/health` | Provider REST cho Core, `POST /events/core` |
 
 ## Cấu hình `.env` của team-core
@@ -31,9 +31,9 @@ VPN. REST gọi qua Radmin IP; MQTT vẫn đi qua broker cloud như HiveMQ.
 Nếu provider dùng REST qua Radmin:
 
 ```env
-NOTIFICATION_SERVICE_URL=http://<RADMIN_IP_TEAM_NOTIFICATION>:8000
+NOTIFICATION_SERVICE_URL=http://26.95.36.20:8000
 NOTIFICATION_PATH=/events/alert.created
-NOTIFICATION_AUTH_TOKEN=<token-from-notification-team>
+NOTIFICATION_AUTH_TOKEN=local-dev-token
 ANALYTICS_SERVICE_URL=http://26.22.249.37:8000
 ANALYTICS_PATH=/events/core
 ANALYTICS_AUTH_TOKEN=local-dev-token

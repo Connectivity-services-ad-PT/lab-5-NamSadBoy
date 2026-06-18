@@ -180,15 +180,15 @@ Nhóm được gọi (provider): `team-notification`
 URL provider:
 
 ```text
-mqtts://<BROKER_HOST>:8883
+http://26.95.36.20:8000
 ```
 
 Endpoint/topic sẽ gọi:
 
 ```text
-METHOD: MQTT PUBLISH
-PATH:   smart-campus/alerts/core
-QoS:    1
+METHOD: POST
+PATH:   /events/alert.created
+AUTH:   Authorization: Bearer local-dev-token
 ```
 
 Mục đích:
@@ -201,22 +201,20 @@ Request mẫu:
 
 ```json
 {
-  "notificationId": "notification-001",
-  "eventType": "core.alert.created",
-  "sourceService": "team-core",
-  "timestamp": "2026-06-17T14:30:12+07:00",
-  "correlationId": "corr-core-001",
-  "alertId": "alert-001",
+  "eventId": "333aee5c-4164-44d5-b3aa-6c60572ccb40",
+  "eventType": "alert.created",
+  "alertId": "677bc548-9efc-49d6-a96a-3abd8a2bdedd",
+  "correlationId": "COR-2026-05-19-001",
+  "source": "core-business-service",
   "severity": "HIGH",
-  "channel": "MULTI",
-  "recipientGroup": "security-ops",
-  "title": "Core policy alert: sensor",
-  "message": "SENSOR_THRESHOLD_CRITICAL",
-  "metadata": {
-    "decisionId": "decision-001",
-    "location": "Lab A101",
-    "sourceEventId": "sensor-event-001"
-  }
+  "alertVersion": 1,
+  "occurredAt": "2026-06-18T01:23:38Z",
+  "data": {
+    "title": "Core policy alert: sensor",
+    "message": "SENSOR_THRESHOLD_CRITICAL",
+    "source": "core-business-service"
+  },
+  "channels": ["telegram", "email", "app"]
 }
 ```
 
@@ -224,8 +222,8 @@ Response mong đợi:
 
 ```json
 {
-  "type": "async",
-  "expectation": "team-notification subscribe topic and logs/sends received alert"
+  "success": true,
+  "expectation": "team-notification stores and displays alert on dashboard"
 }
 ```
 

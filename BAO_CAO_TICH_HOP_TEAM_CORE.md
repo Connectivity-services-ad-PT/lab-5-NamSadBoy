@@ -243,13 +243,17 @@ Notification nhận alert:
 
 ```json
 {
-  "eventType": "core.alert.created",
-  "sourceService": "team-core",
-  "channel": "MULTI",
+  "eventType": "alert.created",
+  "source": "core-business-service",
   "severity": "HIGH",
-  "title": "Core policy alert",
-  "message": "Policy alert generated.",
-  "recipientGroup": "security-ops"
+  "alertVersion": 1,
+  "occurredAt": "2026-06-18T01:23:38Z",
+  "data": {
+    "title": "Core policy alert",
+    "message": "Policy alert generated.",
+    "source": "core-business-service"
+  },
+  "channels": ["telegram", "email", "app"]
 }
 ```
 

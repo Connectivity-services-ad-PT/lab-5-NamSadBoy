@@ -775,21 +775,32 @@ def deliver_integration_result(
 
     if result.get("alertId"):
         notification_id = str(uuid4())
+        occurred_at = iso(utc_now())
+        title = f"Core policy alert: {event_type}"
+        message = result.get("reasonCode", "Policy alert generated.")
         notification_payload = {
             "eventId": notification_id,
             "notificationId": notification_id,
-            "eventType": "core.alert.created",
-            "source": SERVICE_NAME,
+            "eventType": "alert.created",
+            "source": "core-business-service",
             "sourceService": "team-core",
             "channel": "MULTI",
+            "channels": ["telegram", "email", "app"],
             "severity": "HIGH",
-            "title": f"Core policy alert: {event_type}",
-            "message": result.get("reasonCode", "Policy alert generated."),
+            "alertVersion": 1,
+            "title": title,
+            "message": message,
             "correlationId": correlation_id,
-            "timestamp": iso(utc_now()),
-            "createdAt": iso(utc_now()),
+            "timestamp": occurred_at,
+            "createdAt": occurred_at,
+            "occurredAt": occurred_at,
             "alertId": result["alertId"],
             "recipientGroup": "security-ops",
+            "data": {
+                "title": title,
+                "message": message,
+                "source": "core-business-service",
+            },
             "metadata": {
                 "alertId": result["alertId"],
                 "decisionId": result["decisionId"],

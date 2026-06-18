@@ -148,6 +148,29 @@ ACCESS_GATE_METHOD=GET
 - Provider URL: `${NOTIFICATION_SERVICE_URL}`
 - Path: `${NOTIFICATION_PATH}` (default `/api/v1/notifications`)
 - Auth: `Authorization: Bearer ${NOTIFICATION_AUTH_TOKEN}` when configured
+- Live endpoint: `POST http://26.95.36.20:8000/events/alert.created`
+- Live auth: `Authorization: Bearer local-dev-token`
+
+Core sends alert payloads compatible with team A7 Notification:
+
+```json
+{
+  "eventId": "333aee5c-4164-44d5-b3aa-6c60572ccb40",
+  "eventType": "alert.created",
+  "alertId": "677bc548-9efc-49d6-a96a-3abd8a2bdedd",
+  "correlationId": "COR-2026-05-19-001",
+  "source": "core-business-service",
+  "severity": "HIGH",
+  "alertVersion": 1,
+  "occurredAt": "2026-06-18T01:23:38Z",
+  "data": {
+    "title": "Core policy alert",
+    "message": "Policy alert generated.",
+    "source": "core-business-service"
+  },
+  "channels": ["telegram", "email", "app"]
+}
+```
 - Expected success: any `2xx`, recommended `202`
 - Called only when Core creates an alert.
 
