@@ -27,7 +27,7 @@ Core calls these providers:
 | Provider | Environment variable | Path |
 |---|---|---|
 | Notification | `NOTIFICATION_SERVICE_URL`, `NOTIFICATION_PATH`, `NOTIFICATION_AUTH_TOKEN` | configurable, default `POST /api/v1/notifications` |
-| Analytics | `ANALYTICS_SERVICE_URL`, `ANALYTICS_PATH`, `ANALYTICS_AUTH_TOKEN` | configurable, default `POST /api/v1/events` |
+| Analytics | `ANALYTICS_SERVICE_URL`, `ANALYTICS_PATH`, `ANALYTICS_AUTH_TOKEN` | configurable, default `POST /api/v1/events`; team Analytics live endpoint uses `POST /events/core` |
 | Access Gate | `ACCESS_GATE_SERVICE_URL`, `ACCESS_GATE_PATH`, `ACCESS_GATE_AUTH_TOKEN`, `ACCESS_GATE_METHOD` | configurable, default `POST /api/v1/access-logs/query`; team Gate live endpoint uses `GET /access-events` |
 
 At home both variables point to `partner-service:9100`. For cross-team testing,
@@ -38,8 +38,8 @@ NOTIFICATION_SERVICE_URL=http://<RADMIN_IP_TEAM_NOTIFICATION>:8000
 NOTIFICATION_PATH=/events/alert.created
 NOTIFICATION_AUTH_TOKEN=<token-from-notification-team>
 ANALYTICS_SERVICE_URL=http://<RADMIN_IP_TEAM_ANALYTICS>:8000
-ANALYTICS_PATH=/api/v1/events
-ANALYTICS_AUTH_TOKEN=
+ANALYTICS_PATH=/events/core
+ANALYTICS_AUTH_TOKEN=<token-from-analytics-team>
 ACCESS_GATE_SERVICE_URL=http://<RADMIN_IP_TEAM_GATE>:8000
 ACCESS_GATE_PATH=/api/v1/access-logs/query
 ACCESS_GATE_AUTH_TOKEN=

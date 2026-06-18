@@ -1,0 +1,37 @@
+{
+  "testedAt": "2026-06-18T10:05:30+07:00",
+  "consumer": "team-core",
+  "provider": "team-analytics",
+  "providerBaseUrl": "http://26.22.249.37:8000",
+  "providerEndpoint": "POST /events/core",
+  "auth": "Bearer <redacted>",
+  "health": {
+    "status": "ok",
+    "service": "analytics-service",
+    "version": "0.1.0-analytics"
+  },
+  "coreForwardTest": {
+    "coreEndpoint": "POST http://localhost:8000/api/v1/access-events",
+    "status": "processed",
+    "decision": "ALLOW",
+    "analyticsDelivery": {
+      "provider": "analytics",
+      "status": "accepted",
+      "statusCode": 200,
+      "method": "POST",
+      "providerResponse": {
+        "success": true,
+        "message": "Core event received successfully",
+        "eventId": "c3c2f770-0a93-4111-8a19-5ccb35b7beb3"
+      }
+    }
+  },
+  "analyticsReadback": {
+    "url": "http://26.22.249.37:8000/events",
+    "exactMatchCount": 1,
+    "eventId": "c3c2f770-0a93-4111-8a19-5ccb35b7beb3",
+    "correlationId": "a7fc6f0f-8687-4bc0-95f0-df55b26df0a4",
+    "eventType": "core.access-event.processed",
+    "source": "core-business"
+  }
+}

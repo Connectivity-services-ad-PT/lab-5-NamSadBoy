@@ -156,6 +156,14 @@ ACCESS_GATE_METHOD=GET
 - Provider URL: `${ANALYTICS_SERVICE_URL}`
 - Path: `${ANALYTICS_PATH}` (default `/api/v1/events`)
 - Auth: `Authorization: Bearer ${ANALYTICS_AUTH_TOKEN}` when configured
+
+Team Analytics live configuration:
+
+```env
+ANALYTICS_SERVICE_URL=http://26.22.249.37:8000
+ANALYTICS_PATH=/events/core
+ANALYTICS_AUTH_TOKEN=local-dev-token
+```
 - Expected success: any `2xx`, recommended `202`
 - Called for every processed access, sensor, or detection event.
 
