@@ -8,16 +8,19 @@ const topic = process.env.MQTT_TOPIC || "smart-campus/events/sensor";
 const authToken = process.env.AUTH_TOKEN || "lab-core-token";
 const reportPath = process.env.MQTT_REPORT_PATH || "reports/mqtt-smoke-test.json";
 const eventId = `sensor-event-${Date.now()}`;
+const deviceId = `esp32-smoke-${Date.now()}`;
 
 const payload = {
   eventId,
   eventType: "sensor.reading.processed",
-  sourceService: "team-iot",
-  deviceId: "esp32-lab-a101",
-  location: "Lab A101",
+  sourceService: "a1-iot-ingestion",
+  timestamp: new Date().toISOString(),
+  rawEventId: `raw-iot-${Date.now()}`,
+  deviceId,
+  location: `Smoke Test ${eventId}`,
   temperatureC: 42.1,
   humidityPercent: 71.2,
-  motionDetected: true,
+  motionDetected: false,
   lightLux: 390,
   co2Ppm: 710,
   smokePpm: 0.03,
@@ -75,11 +78,17 @@ async function waitForCoreEvent() {
       if (match.result?.outcome !== "ALERT") {
         throw new Error(`MQTT event outcome was ${match.result?.outcome}`);
       }
-      if (match.deliveries?.analytics?.status !== "accepted") {
-        throw new Error("Analytics did not accept MQTT fan-out");
+      const analyticsDelivered =
+        match.deliveries?.analytics?.status === "accepted" ||
+        match.deliveries?.analyticsMqtt?.status === "published";
+      if (!analyticsDelivered) {
+        throw new Error("Analytics did not receive REST or MQTT fan-out");
       }
-      if (match.deliveries?.notification?.status !== "accepted") {
-        throw new Error("Notification did not accept MQTT fan-out");
+      const notificationDelivered =
+        match.deliveries?.notification?.status === "accepted" ||
+        match.deliveries?.notificationMqtt?.status === "published";
+      if (!notificationDelivered) {
+        throw new Error("Notification did not receive REST or MQTT fan-out");
       }
       return match;
     }
@@ -100,8 +109,10 @@ const result = {
     normalizedDeviceId: event.normalizedRequest.deviceId,
     outcome: event.result.outcome,
     reasonCode: event.result.reasonCode,
-    analytics: event.deliveries.analytics.status,
-    notification: event.deliveries.notification.status
+    analyticsRest: event.deliveries.analytics.status,
+    analyticsMqtt: event.deliveries.analyticsMqtt.status,
+    notificationRest: event.deliveries.notification.status,
+    notificationMqtt: event.deliveries.notificationMqtt.status
   }
 };
 

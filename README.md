@@ -5,10 +5,13 @@
 The repository now also contains the Team Core integration build for Buoi 6:
 
 - `POST /api/v1/sensor-events` for IoT Ingestion.
-- MQTT subscribe `smart-campus/events/sensor` for the team-iot HiveMQ flow.
+- MQTT subscribe `smart-campus/events/sensor` and filter `sourceService=a1-iot-ingestion`.
+- MQTT subscribe `smart-campus/events/access` and `smart-campus/events/camera` for cross-service policy.
 - `POST /api/v1/detections` for AI Vision.
 - `POST /api/v1/access-events` for Access Gate.
-- Outbound Notification and Analytics calls configured through `.env`.
+- Correlate repeated denied access, unknown persons, camera motion and sensor danger events.
+- Persist event facts, idempotency results and alert deduplication windows in PostgreSQL.
+- Outbound Notification and Analytics through REST plus MQTT alert/core topics.
 - A 3-second partner timeout returning RFC 7807 HTTP 503.
 - A local partner mock and a dedicated 9-request Newman integration suite.
 - A local Mosquitto broker and MQTT smoke test for the team-iot payload.
@@ -20,6 +23,9 @@ Provider appointment forms for team-core are in
 Use
 [`integration-agreements/radmin-ip-sheet.md`](integration-agreements/radmin-ip-sheet.md)
 to record Radmin VPN IPs for remote REST testing.
+
+The agreed seven-service business rules and the three end-to-end demo scenarios are documented in
+[`NGHIEP_VU_CORE_7_SERVICE.md`](NGHIEP_VU_CORE_7_SERVICE.md).
 
 ## Bai nop Team Core
 

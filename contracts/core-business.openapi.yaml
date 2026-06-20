@@ -883,6 +883,11 @@ components:
             - string
             - "null"
           format: uuid
+        severity:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        alertSuppressed:
+          type: boolean
         evaluatedAt:
           type: string
           format: date-time
@@ -910,6 +915,12 @@ components:
         occurredAt:
           type: string
           format: date-time
+        location:
+          type:
+            - string
+            - "null"
+          minLength: 1
+          maxLength: 128
     VisionResultRequest:
       type: object
       additionalProperties: false
@@ -966,6 +977,7 @@ components:
             - AUTHORIZED_PERSON
             - LOW_CONFIDENCE
             - UNKNOWN_PERSON_HIGH_CONFIDENCE
+            - INTRUSION_CORRELATED
             - CROWD_DETECTED
             - HAZARD_DETECTED
         policyId:
@@ -976,6 +988,15 @@ components:
             - string
             - "null"
           format: uuid
+        severity:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        alertSuppressed:
+          type: boolean
+        correlatedEvidenceEventIds:
+          type: array
+          items:
+            type: string
         evaluatedAt:
           type: string
           format: date-time
@@ -1011,8 +1032,10 @@ components:
             - POLICY_DENY_SUSPENDED
             - POLICY_DENY_ROLE
             - POLICY_DENY_TIME_WINDOW
+            - POLICY_DENY_OUTSIDE_ALLOWED_HOURS
             - POLICY_DENY_ZONE
             - POLICY_NOT_FOUND
+            - REPEATED_ACCESS_DENIED
         policyId:
           type: string
           format: uuid
@@ -1029,6 +1052,21 @@ components:
           type: string
           minLength: 3
           maxLength: 300
+        alertId:
+          type:
+            - string
+            - "null"
+          format: uuid
+        severity:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        deniedAttemptsInWindow:
+          type: integer
+          minimum: 0
+        underlyingReasonCode:
+          type: string
+        alertSuppressed:
+          type: boolean
     PolicyCreateRequest:
       type: object
       additionalProperties: false

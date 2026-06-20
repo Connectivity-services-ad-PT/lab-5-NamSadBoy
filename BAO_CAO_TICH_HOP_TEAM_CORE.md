@@ -477,6 +477,32 @@ Workflow: Lab 05 and Buoi 06 Integration Check
 Conclusion: success
 ```
 
+### 6.9. Kiểm thử nghiệp vụ thật của 7 service
+
+Core đã được nâng từ các rule đơn lẻ thành policy engine có lưu fact, tương quan đa nguồn và chống trùng.
+Evidence mới:
+
+```text
+reports/core-business-scenarios.json
+reports/mqtt-smoke-test.json
+reports/newman-lab05-compose.html
+reports/newman-buoi06-integration.html
+```
+
+Kết quả ngày 20/06/2026:
+
+```text
+Unit test policy: 9/9 passed
+Newman Lab 05: 12 requests, 35 assertions, 0 failed
+Newman Buổi 6: 9 requests, 23 assertions, 0 failed
+IoT smoke_detected: CRITICAL, MQTT Analytics/Notification published
+Unknown person + access denied cùng Gate: INTRUSION_CORRELATED, CRITICAL
+Denied 3 lần trong 5 phút: REPEATED_ACCESS_DENIED, MEDIUM
+```
+
+PostgreSQL hiện lưu thêm `processed_events`, `event_facts` và `alert_dedup`. Core chỉ chạy policy IoT với
+`sourceService=a1-iot-ingestion`; nguồn khác được ghi nhận nhưng không tạo cảnh báo.
+
 ## Kết luận
 
 Team Core đã hoàn thành tích hợp chính với các service liên quan:

@@ -56,6 +56,9 @@ jobs:
       - name: Test local MQTT broker
         run: docker compose exec -T mqtt-broker mosquitto_pub -h 127.0.0.1 -p 1883 -t smart-campus/health -m ok -q 1
 
+      - name: Test Core business rules
+        run: docker compose run --rm --no-deps -v "$PWD/tests:/app/tests:ro" api python -m unittest discover -s tests -v
+
       - name: Test database readiness
         run: |
           set -a

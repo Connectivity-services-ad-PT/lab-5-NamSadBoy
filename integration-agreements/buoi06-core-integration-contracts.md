@@ -32,7 +32,7 @@ X-Correlation-Id: <uuid>
 {
   "eventId": "sensor-event-001",
   "eventType": "sensor.reading.processed",
-  "sourceService": "team-iot",
+  "sourceService": "a1-iot-ingestion",
   "timestamp": "2026-06-17T14:30:10+07:00",
   "rawEventId": "raw-iot-abc123",
   "deviceId": "esp32-lab-a101",
@@ -54,18 +54,21 @@ Core maps this payload to an internal `SensorEvaluationRequest`, evaluates the
 temperature policy, creates an alert, and forwards the result to Analytics and
 Notification when configured.
 
-Core accepts the minimal team-iot camelCase payload even when `timestamp` and
+Core only evaluates events whose `sourceService` is `a1-iot-ingestion`; events
+from another IoT team are recorded as `ignored_source`. Core accepts the IoT A
+camelCase payload even when `timestamp` and
 `rawEventId` are omitted. Policy rules:
 
 - `status=danger` creates an `ALERT`.
 - `status=warning` creates a `WARNING` alert.
 - `reason=smoke_detected` creates a critical alert.
+- `status=sensor_error` and `status=invalid_device` create high-severity alerts.
 - `motionDetected=true` outside 07:00-18:00 creates an unusual-motion alert.
 
 Expected Core log:
 
 ```text
-received sensor event from team-iot deviceId=esp32-lab-a101 status=danger reason=temperature_too_high
+received sensor event from a1-iot-ingestion deviceId=esp32-lab-a101 status=danger reason=temperature_too_high
 created alert alertId=<uuid>
 ```
 

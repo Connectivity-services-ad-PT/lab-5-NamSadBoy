@@ -9,7 +9,8 @@
 - `mqtt-events.json`: recent MQTT events recorded by Core.
 - `newman-lab05-compose.xml`, `newman-lab05-compose.html`: contract test reports.
 - `newman-buoi06-integration.xml`, `newman-buoi06-integration.html`: integration, fan-out, timeout, and recovery reports.
-- `mqtt-smoke-test.json`: local QoS 1 publish evidence for the team-iot payload.
+- `mqtt-smoke-test.json`: local QoS 1 publish evidence for the IoT A payload.
+- `core-business-scenarios.json`: three agreed business scenarios covering environment danger, correlated intrusion, and repeated denied access.
 - `database-evidence.txt`: persisted decision and alert counts.
 - `audit-events.json`: internal integration events.
 - `image-tags.txt`: versioned images used by Compose.

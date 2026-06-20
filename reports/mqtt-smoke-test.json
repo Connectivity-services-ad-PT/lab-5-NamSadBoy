@@ -3,14 +3,16 @@
     "brokerUrl": "mqtt://localhost:1883",
     "topic": "smart-campus/events/sensor",
     "qos": 1,
-    "eventId": "sensor-event-1781746545064"
+    "eventId": "sensor-event-1781965331809"
   },
   "received": {
     "status": "processed",
-    "normalizedDeviceId": "SENSOR-ESP32-LAB-A101",
+    "normalizedDeviceId": "SENSOR-ESP32-SMOKE-17819",
     "outcome": "ALERT",
     "reasonCode": "IOT_STATUS_DANGER",
-    "analytics": "accepted",
-    "notification": "accepted"
+    "analyticsRest": "accepted",
+    "analyticsMqtt": "published",
+    "notificationRest": "accepted",
+    "notificationMqtt": "published"
   }
 }

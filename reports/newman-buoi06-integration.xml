@@ -1,44 +1,44 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="FIT4110 Buoi 6 - Core Business Integration" tests="9" time="3.403">
-  <testsuite name="01 - Reset partner mock" id="e26b5a77-71c9-4db5-913b-7aa6bf61320b" timestamp="2026-06-17T16:52:07.168Z" tests="2" failures="0" errors="0" time="0.098">
-    <testcase name="Response completes within 5 seconds" time="0.098" classname="01ResetPartnerMock"/>
-    <testcase name="Partner reset returns 200" time="0.098" classname="01ResetPartnerMock"/>
+<testsuites name="FIT4110 Buoi 6 - Core Business Integration" tests="9" time="4.115">
+  <testsuite name="01 - Reset partner mock" id="1bcbb1ad-80a0-4911-843b-a956a0b9abcd" timestamp="2026-06-20T14:22:04.706Z" tests="2" failures="0" errors="0" time="0.117">
+    <testcase name="Response completes within 5 seconds" time="0.117" classname="01ResetPartnerMock"/>
+    <testcase name="Partner reset returns 200" time="0.117" classname="01ResetPartnerMock"/>
   </testsuite>
-  <testsuite name="02 - Access Gate to Core" id="85d76c73-9712-473b-b670-1ee3c203e338" timestamp="2026-06-17T16:52:07.168Z" tests="3" failures="0" errors="0" time="0.048">
-    <testcase name="Response completes within 5 seconds" time="0.048" classname="02AccessGateToCore"/>
-    <testcase name="Access event returns 200" time="0.048" classname="02AccessGateToCore"/>
-    <testcase name="Access decision and delivery are correct" time="0.048" classname="02AccessGateToCore"/>
+  <testsuite name="02 - Access Gate to Core" id="8aec3fa2-ad47-4bfd-bead-2453f182c393" timestamp="2026-06-20T14:22:04.706Z" tests="3" failures="0" errors="0" time="0.228">
+    <testcase name="Response completes within 5 seconds" time="0.228" classname="02AccessGateToCore"/>
+    <testcase name="Access event returns 200" time="0.228" classname="02AccessGateToCore"/>
+    <testcase name="Access decision and delivery are correct" time="0.228" classname="02AccessGateToCore"/>
   </testsuite>
-  <testsuite name="03 - IoT to Core with alert fan-out" id="55e18c42-e632-4ff5-be9c-8b50a15bdf5f" timestamp="2026-06-17T16:52:07.168Z" tests="3" failures="0" errors="0" time="0.044">
-    <testcase name="Response completes within 5 seconds" time="0.044" classname="03IoTToCoreWithAlertFanOut"/>
-    <testcase name="Sensor event returns 202" time="0.044" classname="03IoTToCoreWithAlertFanOut"/>
-    <testcase name="Sensor alert reaches both partners" time="0.044" classname="03IoTToCoreWithAlertFanOut"/>
+  <testsuite name="03 - IoT to Core with alert fan-out" id="ad45a148-807c-4d1b-a692-fea3228bada1" timestamp="2026-06-20T14:22:04.706Z" tests="3" failures="0" errors="0" time="0.268">
+    <testcase name="Response completes within 5 seconds" time="0.268" classname="03IoTToCoreWithAlertFanOut"/>
+    <testcase name="Sensor event returns 202" time="0.268" classname="03IoTToCoreWithAlertFanOut"/>
+    <testcase name="Sensor alert reaches both partners" time="0.268" classname="03IoTToCoreWithAlertFanOut"/>
   </testsuite>
-  <testsuite name="04 - Vision to Core with alert fan-out" id="06f3f545-55e6-48e0-8099-e263f0b9d56d" timestamp="2026-06-17T16:52:07.168Z" tests="3" failures="0" errors="0" time="0.052">
-    <testcase name="Response completes within 5 seconds" time="0.052" classname="04VisionToCoreWithAlertFanOut"/>
-    <testcase name="Detection returns 202" time="0.052" classname="04VisionToCoreWithAlertFanOut"/>
-    <testcase name="Detection alert reaches both partners" time="0.052" classname="04VisionToCoreWithAlertFanOut"/>
+  <testsuite name="04 - Vision to Core with alert fan-out" id="81d96c9d-7af7-414d-b630-26ae7cae465f" timestamp="2026-06-20T14:22:04.706Z" tests="3" failures="0" errors="0" time="0.263">
+    <testcase name="Response completes within 5 seconds" time="0.263" classname="04VisionToCoreWithAlertFanOut"/>
+    <testcase name="Detection returns 202" time="0.263" classname="04VisionToCoreWithAlertFanOut"/>
+    <testcase name="Detection alert reaches both partners" time="0.263" classname="04VisionToCoreWithAlertFanOut"/>
   </testsuite>
-  <testsuite name="05 - Verify partner received fan-out" id="1ec1427f-14b3-44bb-8e4f-bb7b1243bc39" timestamp="2026-06-17T16:52:07.168Z" tests="3" failures="0" errors="0" time="0.055">
-    <testcase name="Response completes within 5 seconds" time="0.055" classname="05VerifyPartnerReceivedFanOut"/>
-    <testcase name="Partner state returns 200" time="0.055" classname="05VerifyPartnerReceivedFanOut"/>
-    <testcase name="Analytics and Notification received events" time="0.055" classname="05VerifyPartnerReceivedFanOut"/>
+  <testsuite name="05 - Verify partner received fan-out" id="7e12f870-ffb3-4434-9af3-aa15cbf8ff2c" timestamp="2026-06-20T14:22:04.706Z" tests="3" failures="0" errors="0" time="0.008">
+    <testcase name="Response completes within 5 seconds" time="0.008" classname="05VerifyPartnerReceivedFanOut"/>
+    <testcase name="Partner state returns 200" time="0.008" classname="05VerifyPartnerReceivedFanOut"/>
+    <testcase name="Analytics and Notification received events" time="0.008" classname="05VerifyPartnerReceivedFanOut"/>
   </testsuite>
-  <testsuite name="06 - Configure slow partner" id="0821869a-afea-4a74-a9f6-41a881c28fc2" timestamp="2026-06-17T16:52:07.168Z" tests="2" failures="0" errors="0" time="0.007">
-    <testcase name="Response completes within 5 seconds" time="0.007" classname="06ConfigureSlowPartner"/>
-    <testcase name="Slow mode enabled" time="0.007" classname="06ConfigureSlowPartner"/>
+  <testsuite name="06 - Configure slow partner" id="7c9950b0-ff24-4de7-90dd-b7154c59e324" timestamp="2026-06-20T14:22:04.706Z" tests="2" failures="0" errors="0" time="0.012">
+    <testcase name="Response completes within 5 seconds" time="0.012" classname="06ConfigureSlowPartner"/>
+    <testcase name="Slow mode enabled" time="0.012" classname="06ConfigureSlowPartner"/>
   </testsuite>
-  <testsuite name="07 - Core returns 503 on partner timeout" id="630ad919-9334-49b3-8e7c-d89ecdd682f7" timestamp="2026-06-17T16:52:07.168Z" tests="3" failures="0" errors="0" time="3.034">
-    <testcase name="Response completes within 5 seconds" time="3.034" classname="07CoreReturns503OnPartnerTimeout"/>
-    <testcase name="Timeout returns 503" time="3.034" classname="07CoreReturns503OnPartnerTimeout"/>
-    <testcase name="Timeout is bounded and machine readable" time="3.034" classname="07CoreReturns503OnPartnerTimeout"/>
+  <testsuite name="07 - Core returns 503 on partner timeout" id="1dc4f5a9-8796-46ed-9f73-2ae4fbb310fc" timestamp="2026-06-20T14:22:04.706Z" tests="3" failures="0" errors="0" time="3.159">
+    <testcase name="Response completes within 5 seconds" time="3.159" classname="07CoreReturns503OnPartnerTimeout"/>
+    <testcase name="Timeout returns 503" time="3.159" classname="07CoreReturns503OnPartnerTimeout"/>
+    <testcase name="Timeout is bounded and machine readable" time="3.159" classname="07CoreReturns503OnPartnerTimeout"/>
   </testsuite>
-  <testsuite name="08 - Restore partner mock" id="ad966b93-5a16-483d-aaca-4d8b42723c93" timestamp="2026-06-17T16:52:07.168Z" tests="2" failures="0" errors="0" time="0.017">
-    <testcase name="Response completes within 5 seconds" time="0.017" classname="08RestorePartnerMock"/>
-    <testcase name="Partner restored" time="0.017" classname="08RestorePartnerMock"/>
+  <testsuite name="08 - Restore partner mock" id="d028bcd9-10ba-47d9-90b7-2494e1c57093" timestamp="2026-06-20T14:22:04.706Z" tests="2" failures="0" errors="0" time="0.014">
+    <testcase name="Response completes within 5 seconds" time="0.014" classname="08RestorePartnerMock"/>
+    <testcase name="Partner restored" time="0.014" classname="08RestorePartnerMock"/>
   </testsuite>
-  <testsuite name="09 - Core health remains available" id="338ba4b6-e77a-448a-8475-75c573c63e86" timestamp="2026-06-17T16:52:07.168Z" tests="2" failures="0" errors="0" time="0.048">
-    <testcase name="Response completes within 5 seconds" time="0.048" classname="09CoreHealthRemainsAvailable"/>
-    <testcase name="Core health returns 200" time="0.048" classname="09CoreHealthRemainsAvailable"/>
+  <testsuite name="09 - Core health remains available" id="87487f10-4fca-4156-be6d-3e5448d07094" timestamp="2026-06-20T14:22:04.706Z" tests="2" failures="0" errors="0" time="0.046">
+    <testcase name="Response completes within 5 seconds" time="0.046" classname="09CoreHealthRemainsAvailable"/>
+    <testcase name="Core health returns 200" time="0.046" classname="09CoreHealthRemainsAvailable"/>
   </testsuite>
 </testsuites>

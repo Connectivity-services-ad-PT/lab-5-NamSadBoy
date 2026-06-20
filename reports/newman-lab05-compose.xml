@@ -1,62 +1,62 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="FIT4110 Lab03 - Core Business Policy Contract" tests="12" time="0.340">
-  <testsuite name="01 - Health is public" id="2b2686e5-b7a9-41fb-90ae-f7743ac3e1c2" timestamp="2026-06-17T16:52:01.723Z" tests="3" failures="0" errors="0" time="0.142">
-    <testcase name="Response time is below 1500 ms" time="0.142" classname="01HealthIsPublic"/>
-    <testcase name="Health returns 200" time="0.142" classname="01HealthIsPublic"/>
-    <testcase name="Health shape is valid" time="0.142" classname="01HealthIsPublic"/>
+<testsuites name="FIT4110 Lab03 - Core Business Policy Contract" tests="12" time="1.286">
+  <testsuite name="01 - Health is public" id="c33f3aa6-9b3a-4703-8e97-f9d55d726d54" timestamp="2026-06-20T14:21:54.657Z" tests="3" failures="0" errors="0" time="0.159">
+    <testcase name="Response time is below 1500 ms" time="0.159" classname="01HealthIsPublic"/>
+    <testcase name="Health returns 200" time="0.159" classname="01HealthIsPublic"/>
+    <testcase name="Health shape is valid" time="0.159" classname="01HealthIsPublic"/>
   </testsuite>
-  <testsuite name="02 - Evaluate active staff access" id="d8325212-aead-44d1-bc12-67e905bdb623" timestamp="2026-06-17T16:52:01.723Z" tests="3" failures="0" errors="0" time="0.070">
-    <testcase name="Response time is below 1500 ms" time="0.070" classname="02EvaluateActiveStaffAccess"/>
-    <testcase name="Evaluate returns 200" time="0.070" classname="02EvaluateActiveStaffAccess"/>
-    <testcase name="ALLOW decision follows contract" time="0.070" classname="02EvaluateActiveStaffAccess"/>
+  <testsuite name="02 - Evaluate active staff access" id="e78dfcfe-aaa7-44ac-afec-caa93cad4623" timestamp="2026-06-20T14:21:54.657Z" tests="3" failures="0" errors="0" time="0.215">
+    <testcase name="Response time is below 1500 ms" time="0.215" classname="02EvaluateActiveStaffAccess"/>
+    <testcase name="Evaluate returns 200" time="0.215" classname="02EvaluateActiveStaffAccess"/>
+    <testcase name="ALLOW decision follows contract" time="0.215" classname="02EvaluateActiveStaffAccess"/>
   </testsuite>
-  <testsuite name="03 - Idempotent retry returns same decision" id="788f1281-123b-442d-bdaa-6248be84bcdf" timestamp="2026-06-17T16:52:01.723Z" tests="3" failures="0" errors="0" time="0.015">
-    <testcase name="Response time is below 1500 ms" time="0.015" classname="03IdempotentRetryReturnsSameDecision"/>
-    <testcase name="Retry returns 200" time="0.015" classname="03IdempotentRetryReturnsSameDecision"/>
-    <testcase name="Decision id is stable" time="0.015" classname="03IdempotentRetryReturnsSameDecision"/>
+  <testsuite name="03 - Idempotent retry returns same decision" id="8bf53fdc-a057-4029-9adc-e6dc304ccb19" timestamp="2026-06-20T14:21:54.657Z" tests="3" failures="0" errors="0" time="0.012">
+    <testcase name="Response time is below 1500 ms" time="0.012" classname="03IdempotentRetryReturnsSameDecision"/>
+    <testcase name="Retry returns 200" time="0.012" classname="03IdempotentRetryReturnsSameDecision"/>
+    <testcase name="Decision id is stable" time="0.012" classname="03IdempotentRetryReturnsSameDecision"/>
   </testsuite>
-  <testsuite name="04 - Revoked card is denied" id="b45cee35-b8e3-4a14-ab92-4682b23de294" timestamp="2026-06-17T16:52:01.723Z" tests="3" failures="0" errors="0" time="0.017">
-    <testcase name="Response time is below 1500 ms" time="0.017" classname="04RevokedCardIsDenied"/>
-    <testcase name="Denied request returns 200" time="0.017" classname="04RevokedCardIsDenied"/>
-    <testcase name="Revoked card is denied" time="0.017" classname="04RevokedCardIsDenied"/>
+  <testsuite name="04 - Revoked card is denied" id="f30d4421-6752-4fd1-ae56-a4c6299acdb2" timestamp="2026-06-20T14:21:54.657Z" tests="3" failures="0" errors="0" time="0.285">
+    <testcase name="Response time is below 1500 ms" time="0.285" classname="04RevokedCardIsDenied"/>
+    <testcase name="Denied request returns 200" time="0.285" classname="04RevokedCardIsDenied"/>
+    <testcase name="Revoked card is denied" time="0.285" classname="04RevokedCardIsDenied"/>
   </testsuite>
-  <testsuite name="05 - Missing token returns Problem Details" id="25630793-d4e9-430f-8bd7-9013683cab7d" timestamp="2026-06-17T16:52:01.723Z" tests="3" failures="0" errors="0" time="0.015">
-    <testcase name="Response time is below 1500 ms" time="0.015" classname="05MissingTokenReturnsProblemDetails"/>
-    <testcase name="Missing token returns 401" time="0.015" classname="05MissingTokenReturnsProblemDetails"/>
-    <testcase name="Problem Details is machine readable" time="0.015" classname="05MissingTokenReturnsProblemDetails"/>
+  <testsuite name="05 - Missing token returns Problem Details" id="6d84476a-bda2-421a-94d6-08522921cc3e" timestamp="2026-06-20T14:21:54.657Z" tests="3" failures="0" errors="0" time="0.011">
+    <testcase name="Response time is below 1500 ms" time="0.011" classname="05MissingTokenReturnsProblemDetails"/>
+    <testcase name="Missing token returns 401" time="0.011" classname="05MissingTokenReturnsProblemDetails"/>
+    <testcase name="Problem Details is machine readable" time="0.011" classname="05MissingTokenReturnsProblemDetails"/>
   </testsuite>
-  <testsuite name="06 - Get policy by id" id="60666ea7-c9de-4782-a8dd-2ce95c2e6ef8" timestamp="2026-06-17T16:52:01.723Z" tests="3" failures="0" errors="0" time="0.013">
-    <testcase name="Response time is below 1500 ms" time="0.013" classname="06GetPolicyById"/>
-    <testcase name="Policy lookup returns 200" time="0.013" classname="06GetPolicyById"/>
-    <testcase name="Policy has polymorphic rules" time="0.013" classname="06GetPolicyById"/>
+  <testsuite name="06 - Get policy by id" id="22bc665e-5f81-4436-aff0-7020654cace3" timestamp="2026-06-20T14:21:54.657Z" tests="3" failures="0" errors="0" time="0.011">
+    <testcase name="Response time is below 1500 ms" time="0.011" classname="06GetPolicyById"/>
+    <testcase name="Policy lookup returns 200" time="0.011" classname="06GetPolicyById"/>
+    <testcase name="Policy has polymorphic rules" time="0.011" classname="06GetPolicyById"/>
   </testsuite>
-  <testsuite name="07 - Unknown policy returns 404" id="3464a64c-cb7a-4027-b78c-7d6ca0c45002" timestamp="2026-06-17T16:52:01.723Z" tests="3" failures="0" errors="0" time="0.009">
+  <testsuite name="07 - Unknown policy returns 404" id="9354358f-6e6b-43d5-9fb4-c0ea1eeec8ad" timestamp="2026-06-20T14:21:54.657Z" tests="3" failures="0" errors="0" time="0.009">
     <testcase name="Response time is below 1500 ms" time="0.009" classname="07UnknownPolicyReturns404"/>
     <testcase name="Unknown policy returns 404" time="0.009" classname="07UnknownPolicyReturns404"/>
     <testcase name="404 body follows Problem schema" time="0.009" classname="07UnknownPolicyReturns404"/>
   </testsuite>
-  <testsuite name="08 - Invalid card id returns 422" id="4dffa588-8a65-4055-bf79-7c82447fcd02" timestamp="2026-06-17T16:52:01.723Z" tests="2" failures="0" errors="0" time="0.008">
-    <testcase name="Response time is below 1500 ms" time="0.008" classname="08InvalidCardIdReturns422"/>
-    <testcase name="Invalid card id returns 422" time="0.008" classname="08InvalidCardIdReturns422"/>
+  <testsuite name="08 - Invalid card id returns 422" id="4029d339-26a0-41a6-98db-5578e5f47ac4" timestamp="2026-06-20T14:21:54.657Z" tests="2" failures="0" errors="0" time="0.025">
+    <testcase name="Response time is below 1500 ms" time="0.025" classname="08InvalidCardIdReturns422"/>
+    <testcase name="Invalid card id returns 422" time="0.025" classname="08InvalidCardIdReturns422"/>
   </testsuite>
-  <testsuite name="09 - List alerts" id="bdcbd2d9-3a36-4a80-9572-42302e5f81fe" timestamp="2026-06-17T16:52:01.723Z" tests="3" failures="0" errors="0" time="0.014">
-    <testcase name="Response time is below 1500 ms" time="0.014" classname="09ListAlerts"/>
-    <testcase name="Alerts returns 200" time="0.014" classname="09ListAlerts"/>
-    <testcase name="Alerts response has items and count" time="0.014" classname="09ListAlerts"/>
+  <testsuite name="09 - List alerts" id="2318240b-c9d3-4997-ab77-8a1b32595ec2" timestamp="2026-06-20T14:21:54.657Z" tests="3" failures="0" errors="0" time="0.015">
+    <testcase name="Response time is below 1500 ms" time="0.015" classname="09ListAlerts"/>
+    <testcase name="Alerts returns 200" time="0.015" classname="09ListAlerts"/>
+    <testcase name="Alerts response has items and count" time="0.015" classname="09ListAlerts"/>
   </testsuite>
-  <testsuite name="10 - Sensor threshold creates alert" id="7b17dd70-66a4-4f6d-ba3a-18a0b86c6f01" timestamp="2026-06-17T16:52:01.723Z" tests="3" failures="0" errors="0" time="0.012">
-    <testcase name="Response time is below 1500 ms" time="0.012" classname="10SensorThresholdCreatesAlert"/>
-    <testcase name="Sensor evaluation returns 200" time="0.012" classname="10SensorThresholdCreatesAlert"/>
-    <testcase name="High temperature creates alert outcome" time="0.012" classname="10SensorThresholdCreatesAlert"/>
+  <testsuite name="10 - Sensor threshold creates alert" id="b1d7f048-34f5-41a3-8c38-bb5b3e2c5f49" timestamp="2026-06-20T14:21:54.657Z" tests="3" failures="0" errors="0" time="0.235">
+    <testcase name="Response time is below 1500 ms" time="0.235" classname="10SensorThresholdCreatesAlert"/>
+    <testcase name="Sensor evaluation returns 200" time="0.235" classname="10SensorThresholdCreatesAlert"/>
+    <testcase name="High temperature creates alert outcome" time="0.235" classname="10SensorThresholdCreatesAlert"/>
   </testsuite>
-  <testsuite name="11 - Unknown person detection creates alert" id="989948e6-c6eb-4514-9054-52b9e66fbc5f" timestamp="2026-06-17T16:52:01.723Z" tests="3" failures="0" errors="0" time="0.011">
-    <testcase name="Response time is below 1500 ms" time="0.011" classname="11UnknownPersonDetectionCreatesAlert"/>
-    <testcase name="Detection evaluation returns 200" time="0.011" classname="11UnknownPersonDetectionCreatesAlert"/>
-    <testcase name="Unknown person creates alert outcome" time="0.011" classname="11UnknownPersonDetectionCreatesAlert"/>
+  <testsuite name="11 - Unknown person detection creates alert" id="07977146-50e2-4a27-a201-b928dcd00945" timestamp="2026-06-20T14:21:54.657Z" tests="3" failures="0" errors="0" time="0.279">
+    <testcase name="Response time is below 1500 ms" time="0.279" classname="11UnknownPersonDetectionCreatesAlert"/>
+    <testcase name="Detection evaluation returns 200" time="0.279" classname="11UnknownPersonDetectionCreatesAlert"/>
+    <testcase name="Unknown person creates alert outcome" time="0.279" classname="11UnknownPersonDetectionCreatesAlert"/>
   </testsuite>
-  <testsuite name="12 - Create policy" id="e11f40e8-3cb3-41cf-9b07-1f0afe424013" timestamp="2026-06-17T16:52:01.723Z" tests="3" failures="0" errors="0" time="0.014">
-    <testcase name="Response time is below 1500 ms" time="0.014" classname="12CreatePolicy"/>
-    <testcase name="Create policy returns 201" time="0.014" classname="12CreatePolicy"/>
-    <testcase name="Created policy is versioned" time="0.014" classname="12CreatePolicy"/>
+  <testsuite name="12 - Create policy" id="b929cc27-c6a7-4131-960d-1c1c2e727753" timestamp="2026-06-20T14:21:54.657Z" tests="3" failures="0" errors="0" time="0.030">
+    <testcase name="Response time is below 1500 ms" time="0.030" classname="12CreatePolicy"/>
+    <testcase name="Create policy returns 201" time="0.030" classname="12CreatePolicy"/>
+    <testcase name="Created policy is versioned" time="0.030" classname="12CreatePolicy"/>
   </testsuite>
 </testsuites>

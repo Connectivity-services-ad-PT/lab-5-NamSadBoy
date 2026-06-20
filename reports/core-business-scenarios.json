@@ -1,0 +1,28 @@
+{
+  "testedAt": "2026-06-20T14:22:29.341Z",
+  "scenario1EnvironmentDanger": {
+    "status": "passed",
+    "eventId": "sensor-business-1781965341927",
+    "outcome": "ALERT",
+    "reasonCode": "IOT_SMOKE_DETECTED_CRITICAL",
+    "severity": "CRITICAL",
+    "analyticsMqtt": "published",
+    "notificationMqtt": "published"
+  },
+  "scenario2UnknownPersonAtGate": {
+    "status": "passed",
+    "accessDecision": "DENY",
+    "reasonCode": "INTRUSION_CORRELATED",
+    "severity": "CRITICAL",
+    "evidenceEventIds": [
+      "afda05e5-52fe-4290-98c9-4dfaf3b6df55"
+    ]
+  },
+  "scenario3RepeatedDeniedAccess": {
+    "status": "passed",
+    "attempts": 3,
+    "reasonCode": "REPEATED_ACCESS_DENIED",
+    "severity": "MEDIUM",
+    "alertId": "1dd420b6-f22b-452b-af66-bcbb06351936"
+  }
+}

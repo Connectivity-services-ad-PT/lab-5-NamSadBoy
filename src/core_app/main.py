@@ -61,8 +61,18 @@ MQTT_TLS = os.getenv("MQTT_TLS", "false").lower() == "true"
 MQTT_USERNAME = os.getenv("MQTT_USERNAME") or None
 MQTT_PASSWORD = os.getenv("MQTT_PASSWORD") or None
 MQTT_TOPIC = os.getenv("MQTT_TOPIC", "smart-campus/events/sensor")
+MQTT_ACCESS_TOPIC = os.getenv("MQTT_ACCESS_TOPIC", "smart-campus/events/access")
+MQTT_CAMERA_TOPIC = os.getenv("MQTT_CAMERA_TOPIC", "smart-campus/events/camera")
+MQTT_ALERT_TOPIC = os.getenv("MQTT_ALERT_TOPIC", "smart-campus/events/alert")
+MQTT_CORE_TOPIC = os.getenv("MQTT_CORE_TOPIC", "smart-campus/events/core")
+MQTT_OUTBOUND_ENABLED = os.getenv("MQTT_OUTBOUND_ENABLED", "true").lower() == "true"
 MQTT_QOS = int(os.getenv("MQTT_QOS", "1"))
 MQTT_CLIENT_ID = os.getenv("MQTT_CLIENT_ID", "team-core-core-business")
+IOT_SOURCE_SERVICE = os.getenv("IOT_SOURCE_SERVICE", "a1-iot-ingestion")
+ALERT_DEDUP_WINDOW_SECONDS = int(os.getenv("ALERT_DEDUP_WINDOW_SECONDS", "300"))
+CORRELATION_WINDOW_SECONDS = int(os.getenv("CORRELATION_WINDOW_SECONDS", "120"))
+DENIED_ACCESS_WINDOW_SECONDS = int(os.getenv("DENIED_ACCESS_WINDOW_SECONDS", "300"))
+DENIED_ACCESS_THRESHOLD = int(os.getenv("DENIED_ACCESS_THRESHOLD", "3"))
 
 ACCESS_POLICY_ID = "7e34be8b-1da8-483e-b5ae-28f8662d0ac7"
 SENSOR_POLICY_ID = "98ae19f6-13f6-4cc5-aa8f-3b76cb8c68ec"
@@ -240,6 +250,7 @@ class DetectionEvaluationRequest(BaseModel):
     label: DetectionLabel
     confidence: float = Field(ge=0, le=1)
     occurredAt: datetime
+    location: str | None = Field(default=None, min_length=1, max_length=128)
 
 
 class VisionResultRequest(BaseModel):
@@ -315,6 +326,44 @@ def init_database() -> None:
                     )
                     """
                 )
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS processed_events (
+                        idempotency_key TEXT PRIMARY KEY,
+                        result JSONB NOT NULL,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                    """
+                )
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS event_facts (
+                        fact_id UUID PRIMARY KEY,
+                        event_type TEXT NOT NULL,
+                        source_event_id TEXT NOT NULL,
+                        location TEXT,
+                        occurred_at TIMESTAMPTZ NOT NULL,
+                        payload JSONB NOT NULL,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        UNIQUE (event_type, source_event_id)
+                    )
+                    """
+                )
+                connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_event_facts_type_time
+                    ON event_facts (event_type, occurred_at DESC)
+                    """
+                )
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS alert_dedup (
+                        dedup_key TEXT PRIMARY KEY,
+                        last_alert_at TIMESTAMPTZ NOT NULL,
+                        alert_id UUID
+                    )
+                    """
+                )
             return
         except Exception as exc:
             last_error = exc
@@ -375,15 +424,60 @@ def dependencies_ready() -> bool:
         return False
 
 
-def create_alert(decision_id: str, severity: str, message: str) -> str:
+def claim_alert_slot(dedup_key: str, now: datetime, window_seconds: int) -> bool:
+    cutoff = now - timedelta(seconds=window_seconds)
+    with db_connection() as connection:
+        claimed = connection.execute(
+            """
+            INSERT INTO alert_dedup (dedup_key, last_alert_at)
+            VALUES (%s, %s)
+            ON CONFLICT (dedup_key) DO UPDATE
+            SET last_alert_at = EXCLUDED.last_alert_at
+            WHERE alert_dedup.last_alert_at <= %s
+            RETURNING dedup_key
+            """,
+            (dedup_key, now, cutoff),
+        ).fetchone()
+    return claimed is not None
+
+
+def create_alert(
+    decision_id: str,
+    severity: str,
+    message: str,
+    *,
+    alert_type: str = "policy",
+    location: str | None = None,
+    evidence_event_ids: list[str] | None = None,
+    dedup_key: str | None = None,
+    dedup_window_seconds: int = ALERT_DEDUP_WINDOW_SECONDS,
+) -> str | None:
+    now = utc_now()
+    if dedup_key and not claim_alert_slot(dedup_key, now, dedup_window_seconds):
+        publish_audit_event(
+            {
+                "eventType": "alert.suppressed.duplicate",
+                "payload": {
+                    "decisionId": decision_id,
+                    "dedupKey": dedup_key,
+                    "suppressedAt": iso(now),
+                },
+            }
+        )
+        return None
+
     alert_id = str(uuid4())
     alert = {
         "alertId": alert_id,
         "decisionId": decision_id,
-        "severity": severity,
+        "alertType": alert_type,
+        "severity": severity.upper(),
         "status": "OPEN",
         "message": message,
-        "createdAt": iso(utc_now()),
+        "location": location,
+        "evidenceEventIds": evidence_event_ids or [],
+        "dedupKey": dedup_key,
+        "createdAt": iso(now),
     }
     alerts.append(alert)
     persist_alert(alert)
@@ -392,12 +486,166 @@ def create_alert(decision_id: str, severity: str, message: str) -> str:
 
 
 def cached(idempotency_key: str | None) -> dict[str, Any] | None:
-    return idempotency_results.get(idempotency_key) if idempotency_key else None
+    if not idempotency_key:
+        return None
+    in_memory = idempotency_results.get(idempotency_key)
+    if in_memory:
+        return in_memory
+    try:
+        with db_connection() as connection:
+            row = connection.execute(
+                "SELECT result FROM processed_events WHERE idempotency_key = %s",
+                (idempotency_key,),
+            ).fetchone()
+        if row:
+            idempotency_results[idempotency_key] = row[0]
+            return row[0]
+    except psycopg.Error:
+        return None
+    return None
 
 
 def remember(idempotency_key: str | None, result: dict[str, Any]) -> None:
     if idempotency_key:
         idempotency_results[idempotency_key] = result
+        try:
+            with db_connection() as connection:
+                connection.execute(
+                    """
+                    INSERT INTO processed_events (idempotency_key, result)
+                    VALUES (%s, %s::jsonb)
+                    ON CONFLICT (idempotency_key) DO NOTHING
+                    """,
+                    (idempotency_key, json.dumps(result)),
+                )
+        except psycopg.Error:
+            pass
+
+
+def record_event_fact(
+    event_type: str,
+    source_event_id: str,
+    location: str | None,
+    occurred_at: datetime,
+    payload: dict[str, Any],
+) -> None:
+    fact_id = uuid5(NAMESPACE_URL, f"{event_type}:{source_event_id}")
+    normalized_location = canonical_location(location) if location else None
+    with db_connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO event_facts (
+                fact_id, event_type, source_event_id, location, occurred_at, payload
+            )
+            VALUES (%s, %s, %s, %s, %s, %s::jsonb)
+            ON CONFLICT (event_type, source_event_id) DO NOTHING
+            """,
+            (
+                str(fact_id),
+                event_type,
+                source_event_id,
+                normalized_location,
+                occurred_at,
+                json.dumps(payload),
+            ),
+        )
+
+
+def recent_event_facts(
+    event_type: str,
+    occurred_at: datetime,
+    window_seconds: int,
+) -> list[dict[str, Any]]:
+    window_start = occurred_at - timedelta(seconds=window_seconds)
+    window_end = occurred_at + timedelta(seconds=window_seconds)
+    with db_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT source_event_id, location, occurred_at, payload
+            FROM event_facts
+            WHERE event_type = %s AND occurred_at BETWEEN %s AND %s
+            ORDER BY occurred_at DESC
+            """,
+            (event_type, window_start, window_end),
+        ).fetchall()
+    return [
+        {
+            "sourceEventId": row[0],
+            "location": row[1],
+            "occurredAt": iso(row[2]),
+            "payload": row[3],
+        }
+        for row in rows
+    ]
+
+
+def canonical_location(location: str) -> str:
+    normalized = re.sub(r"[^A-Z0-9]+", "-", location.upper()).strip("-")
+    gate_match = re.search(r"GATE-([A-Z]|\d{1,2})", normalized)
+    if gate_match:
+        gate_token = gate_match.group(1)
+        if gate_token.isalpha():
+            gate_token = f"{ord(gate_token) - ord('A') + 1:02d}"
+        else:
+            gate_token = f"{int(gate_token):02d}"
+        return f"GATE-{gate_token}"
+    return normalized or "UNKNOWN"
+
+
+def apply_repeated_access_policy(
+    payload: AccessEvaluationRequest,
+    result: dict[str, Any],
+) -> None:
+    fact_payload = {
+        "input": payload.model_dump(mode="json"),
+        "result": result,
+    }
+    record_event_fact(
+        "access",
+        str(payload.requestId),
+        payload.gateId,
+        payload.occurredAt,
+        fact_payload,
+    )
+    if result["decision"] != "DENY":
+        return
+
+    recent_facts = recent_event_facts(
+        "access",
+        payload.occurredAt,
+        DENIED_ACCESS_WINDOW_SECONDS,
+    )
+    matching_denials = [
+        fact
+        for fact in recent_facts
+        if fact["payload"].get("result", {}).get("decision") == "DENY"
+        and fact["payload"].get("input", {}).get("cardId") == payload.cardId
+        and fact["payload"].get("input", {}).get("gateId") == payload.gateId
+    ]
+    result["deniedAttemptsInWindow"] = len(matching_denials)
+    if len(matching_denials) < DENIED_ACCESS_THRESHOLD:
+        return
+
+    original_reason = result["reasonCode"]
+    alert_id = create_alert(
+        result["decisionId"],
+        "MEDIUM",
+        (
+            f"Repeated denied access for {payload.cardId} at {payload.gateId}: "
+            f"{len(matching_denials)} attempts within "
+            f"{DENIED_ACCESS_WINDOW_SECONDS} seconds."
+        ),
+        alert_type="suspicious_access",
+        location=payload.gateId,
+        evidence_event_ids=[fact["sourceEventId"] for fact in matching_denials],
+        dedup_key=f"repeated-access:{payload.cardId.lower()}:{payload.gateId.lower()}",
+        dedup_window_seconds=DENIED_ACCESS_WINDOW_SECONDS,
+    )
+    result["underlyingReasonCode"] = original_reason
+    result["reasonCode"] = "REPEATED_ACCESS_DENIED"
+    result["alertId"] = alert_id
+    result["severity"] = "MEDIUM"
+    result["alertSuppressed"] = alert_id is None
 
 
 class IotMqttSensorEvent(BaseModel):
@@ -418,6 +666,34 @@ class IotMqttSensorEvent(BaseModel):
     status: str = Field(min_length=2, max_length=32)
     alertLevel: str = Field(min_length=2, max_length=32)
     reason: str = Field(min_length=2, max_length=128)
+
+
+class AccessMqttEvent(BaseModel):
+    event_type: str = Field(default="access.swipe.processed", min_length=3, max_length=128)
+    source_service: str = Field(default="team-gate", min_length=3, max_length=64)
+    raw_event_id: str = Field(min_length=3, max_length=128)
+    timestamp: datetime = Field(default_factory=utc_now)
+    uid: str = Field(min_length=3, max_length=64)
+    student_id: str | None = Field(default=None, max_length=64)
+    full_name: str | None = Field(default=None, max_length=128)
+    class_name: str | None = Field(default=None, max_length=64)
+    door_id: str = Field(min_length=2, max_length=64)
+    location: str = Field(min_length=1, max_length=128)
+    direction: str = Field(pattern=r"^(in|out|ENTRY|EXIT)$")
+    access_result: str = Field(pattern=r"^(granted|denied)$")
+    reason: str = Field(min_length=2, max_length=128)
+
+
+class CameraMqttEvent(BaseModel):
+    request_id: str = Field(min_length=3, max_length=128)
+    event_type: str = Field(default="camera.motion.triggered", min_length=3, max_length=128)
+    source_service: str = Field(default="team-camera", min_length=3, max_length=64)
+    camera_id: str = Field(min_length=2, max_length=64)
+    timestamp: datetime
+    location: str = Field(min_length=1, max_length=128)
+    motion_detected: bool
+    motion_score: float = Field(ge=0, le=1)
+    snapshot_url: str | None = Field(default=None, max_length=2048)
 
 
 def normalize_sensor_id(device_id: str) -> str:
@@ -474,6 +750,46 @@ def is_after_hours(occurred_at: datetime) -> bool:
     return local_time.hour < 7 or local_time.hour >= 18
 
 
+def is_access_policy_time(occurred_at: datetime) -> bool:
+    local_time = occurred_at.astimezone(timezone(timedelta(hours=7)))
+    return 6 <= local_time.hour < 22
+
+
+def classify_iot_sensor_event(
+    event: IotMqttSensorEvent,
+    payload: SensorEvaluationRequest,
+) -> tuple[str, str, str]:
+    event_status = event.status.lower()
+    event_reason = event.reason.lower()
+    alert_level = event.alertLevel.lower()
+
+    if event_status == "invalid_device" or event_reason == "device_not_registered":
+        return "ALERT", "IOT_INVALID_DEVICE", "HIGH"
+    if event_status == "sensor_error" or event_reason in {
+        "missing_sensor_value",
+        "invalid_sensor_value",
+    }:
+        return "ALERT", "IOT_SENSOR_ERROR", "HIGH"
+    if event_reason == "smoke_detected" or (
+        "smoke" in event_reason and event.smokePpm is not None and event.smokePpm >= 1
+    ):
+        return "ALERT", "IOT_SMOKE_DETECTED_CRITICAL", "CRITICAL"
+    if event.motionDetected and is_after_hours(event.timestamp):
+        return "ALERT", "IOT_MOTION_DETECTED_OUT_OF_HOURS", "HIGH"
+    if event_status == "danger":
+        severity = "CRITICAL" if alert_level == "critical" else "HIGH"
+        return "ALERT", "IOT_STATUS_DANGER", severity
+    if event_status == "warning":
+        return "WARNING", "IOT_STATUS_WARNING", "MEDIUM"
+    if payload.metric == SensorMetric.SMOKE and payload.value >= 1:
+        return "ALERT", "SENSOR_THRESHOLD_CRITICAL", "CRITICAL"
+    if payload.metric == SensorMetric.TEMPERATURE and payload.value >= 40:
+        return "ALERT", "SENSOR_THRESHOLD_CRITICAL", "HIGH"
+    if payload.metric == SensorMetric.TEMPERATURE and payload.value >= 35:
+        return "WARNING", "SENSOR_THRESHOLD_WARNING", "MEDIUM"
+    return "NORMAL", "SENSOR_NORMAL", "LOW"
+
+
 def evaluate_iot_sensor_event(
     event: IotMqttSensorEvent,
     payload: SensorEvaluationRequest,
@@ -483,28 +799,7 @@ def evaluate_iot_sensor_event(
     if previous:
         return previous
 
-    event_status = event.status.lower()
-    event_reason = event.reason.lower()
-    alert_level = event.alertLevel.lower()
-
-    if "smoke_detected" in event_reason or (
-        "smoke" in event_reason and event.smokePpm is not None and event.smokePpm > 0
-    ):
-        outcome, reason, severity = "ALERT", "IOT_SMOKE_DETECTED_CRITICAL", "CRITICAL"
-    elif event.motionDetected and is_after_hours(event.timestamp):
-        outcome, reason, severity = "ALERT", "IOT_MOTION_DETECTED_OUT_OF_HOURS", "HIGH"
-    elif event_status == "danger" or alert_level in {"high", "critical"}:
-        outcome, reason, severity = "ALERT", "IOT_STATUS_DANGER", "CRITICAL"
-    elif event_status == "warning" or alert_level in {"medium", "warning"}:
-        outcome, reason, severity = "WARNING", "IOT_STATUS_WARNING", "MEDIUM"
-    elif payload.metric == SensorMetric.SMOKE and payload.value > 0:
-        outcome, reason, severity = "ALERT", "SENSOR_THRESHOLD_CRITICAL", "CRITICAL"
-    elif payload.metric == SensorMetric.TEMPERATURE and payload.value >= 40:
-        outcome, reason, severity = "ALERT", "SENSOR_THRESHOLD_CRITICAL", "CRITICAL"
-    elif payload.metric == SensorMetric.TEMPERATURE and payload.value >= 35:
-        outcome, reason, severity = "WARNING", "SENSOR_THRESHOLD_WARNING", "MEDIUM"
-    else:
-        outcome, reason, severity = "NORMAL", "SENSOR_NORMAL", "LOW"
+    outcome, reason, severity = classify_iot_sensor_event(event, payload)
 
     decision_id = str(uuid4())
     alert_id = (
@@ -514,6 +809,12 @@ def evaluate_iot_sensor_event(
             (
                 f"IoT {event.status} event for {event.deviceId} at {event.location}: "
                 f"{event.reason}."
+            ),
+            alert_type="environment",
+            location=event.location,
+            evidence_event_ids=[event.eventId],
+            dedup_key=(
+                f"environment:{reason}:{event.location.lower()}:{event.deviceId.lower()}"
             ),
         )
         if outcome != "NORMAL"
@@ -526,6 +827,8 @@ def evaluate_iot_sensor_event(
         "reasonCode": reason,
         "policyId": SENSOR_POLICY_ID,
         "alertId": alert_id,
+        "severity": severity,
+        "alertSuppressed": outcome != "NORMAL" and alert_id is None,
         "evaluatedAt": iso(utc_now()),
         "iotEventId": event.eventId,
         "deviceId": event.deviceId,
@@ -551,7 +854,28 @@ def process_iot_mqtt_message(topic: str, qos: int, payload_bytes: bytes) -> None
     try:
         raw_payload = json.loads(payload_bytes.decode("utf-8"))
         event = IotMqttSensorEvent.model_validate(raw_payload)
+        if event.sourceService != IOT_SOURCE_SERVICE:
+            record_mqtt_event(
+                {
+                    "status": "ignored_source",
+                    "topic": topic,
+                    "qos": qos,
+                    "mqttEventId": event.eventId,
+                    "sourceService": event.sourceService,
+                    "expectedSourceService": IOT_SOURCE_SERVICE,
+                    "receivedAt": received_at,
+                }
+            )
+            return
+
         sensor_request = iot_event_to_sensor_request(event)
+        record_event_fact(
+            "sensor",
+            event.eventId,
+            event.location,
+            event.timestamp,
+            event.model_dump(mode="json"),
+        )
         print(
             (
                 f"received sensor event from {event.sourceService} "
@@ -565,23 +889,12 @@ def process_iot_mqtt_message(topic: str, qos: int, payload_bytes: bytes) -> None
         else:
             print(f"processed sensor event without alert outcome={result['outcome']}", flush=True)
         correlation_id = str(uuid5(NAMESPACE_URL, f"mqtt:{event.eventId}"))
-        status = "processed"
-        try:
-            deliveries: dict[str, Any] = deliver_integration_result(
-                "sensor-event",
-                sensor_request,
-                result,
-                correlation_id,
-            )
-        except ProblemError as exc:
-            status = "processed_partner_failed"
-            deliveries = {
-                "error": {
-                    "status": exc.status_code,
-                    "title": exc.title,
-                    "detail": exc.detail,
-                }
-            }
+        status, deliveries = mqtt_partner_deliveries(
+            "sensor-event",
+            sensor_request,
+            result,
+            correlation_id,
+        )
 
         record = {
             "status": status,
@@ -611,6 +924,247 @@ def process_iot_mqtt_message(topic: str, qos: int, payload_bytes: bytes) -> None
         )
 
 
+def mqtt_partner_deliveries(
+    event_type: str,
+    source_payload: BaseModel,
+    result: dict[str, Any],
+    correlation_id: str,
+) -> tuple[str, dict[str, Any]]:
+    try:
+        return (
+            "processed",
+            deliver_integration_result(
+                event_type,
+                source_payload,
+                result,
+                correlation_id,
+                strict=False,
+            ),
+        )
+    except ProblemError as exc:
+        return (
+            "processed_partner_failed",
+            {
+                "error": {
+                    "status": exc.status_code,
+                    "title": exc.title,
+                    "detail": exc.detail,
+                }
+            },
+        )
+
+
+def process_access_mqtt_message(topic: str, qos: int, payload_bytes: bytes) -> None:
+    received_at = iso(utc_now())
+    try:
+        event = AccessMqttEvent.model_validate_json(payload_bytes)
+        decision_id = str(uuid4())
+        denied = event.access_result == "denied"
+        result: dict[str, Any] = {
+            "decisionId": decision_id,
+            "requestId": event.raw_event_id,
+            "outcome": "DENIED" if denied else "NORMAL",
+            "reasonCode": event.reason.upper(),
+            "policyId": ACCESS_POLICY_ID,
+            "alertId": None,
+            "severity": "LOW",
+            "evaluatedAt": iso(utc_now()),
+            "accessResult": event.access_result,
+        }
+        record_event_fact(
+            "access",
+            event.raw_event_id,
+            event.location,
+            event.timestamp,
+            {"input": event.model_dump(mode="json"), "result": result},
+        )
+
+        if denied:
+            recent_denials = [
+                fact
+                for fact in recent_event_facts(
+                    "access",
+                    event.timestamp,
+                    DENIED_ACCESS_WINDOW_SECONDS,
+                )
+                if fact["payload"].get("result", {}).get("accessResult") == "denied"
+                and fact["payload"].get("input", {}).get("uid") == event.uid
+                and fact["payload"].get("input", {}).get("door_id") == event.door_id
+            ]
+            result["deniedAttemptsInWindow"] = len(recent_denials)
+            if len(recent_denials) >= DENIED_ACCESS_THRESHOLD:
+                result["reasonCode"] = "REPEATED_ACCESS_DENIED"
+                result["severity"] = "MEDIUM"
+                result["alertId"] = create_alert(
+                    decision_id,
+                    "MEDIUM",
+                    (
+                        f"Repeated denied RFID access for {event.uid} at {event.location}: "
+                        f"{len(recent_denials)} attempts."
+                    ),
+                    alert_type="suspicious_access",
+                    location=event.location,
+                    evidence_event_ids=[
+                        fact["sourceEventId"] for fact in recent_denials
+                    ],
+                    dedup_key=f"repeated-access:{event.uid.lower()}:{event.door_id.lower()}",
+                    dedup_window_seconds=DENIED_ACCESS_WINDOW_SECONDS,
+                )
+                result["alertSuppressed"] = result["alertId"] is None
+
+        decisions[decision_id] = result
+        persist_decision(result)
+        publish_audit_event({"eventType": "policy.decision.created", "payload": result})
+        correlation_id = str(uuid5(NAMESPACE_URL, f"mqtt:{event.raw_event_id}"))
+        status, deliveries = mqtt_partner_deliveries(
+            "access-event",
+            event,
+            result,
+            correlation_id,
+        )
+        record = {
+            "status": status,
+            "topic": topic,
+            "qos": qos,
+            "mqttEventId": event.raw_event_id,
+            "sourceService": event.source_service,
+            "receivedAt": received_at,
+            "payload": event.model_dump(mode="json"),
+            "result": result,
+            "deliveries": deliveries,
+        }
+        record_mqtt_event(record)
+        publish_audit_event({"eventType": "mqtt.access.received", "payload": record})
+    except Exception as exc:
+        record_mqtt_event(
+            {
+                "status": "invalid",
+                "topic": topic,
+                "qos": qos,
+                "receivedAt": received_at,
+                "error": f"{exc.__class__.__name__}: {exc}",
+                "payload": payload_bytes.decode("utf-8", errors="replace"),
+            }
+        )
+
+
+def process_camera_mqtt_message(topic: str, qos: int, payload_bytes: bytes) -> None:
+    received_at = iso(utc_now())
+    try:
+        event = CameraMqttEvent.model_validate_json(payload_bytes)
+        record_event_fact(
+            "camera",
+            event.request_id,
+            event.location,
+            event.timestamp,
+            event.model_dump(mode="json"),
+        )
+        recent_granted_access = [
+            fact
+            for fact in recent_event_facts(
+                "access",
+                event.timestamp,
+                CORRELATION_WINDOW_SECONDS,
+            )
+            if fact["location"] == canonical_location(event.location)
+            and (
+                fact["payload"].get("result", {}).get("decision") == "ALLOW"
+                or fact["payload"].get("result", {}).get("accessResult") == "granted"
+            )
+        ]
+        suspicious_motion = (
+            event.motion_detected
+            and is_after_hours(event.timestamp)
+            and not recent_granted_access
+        )
+        decision_id = str(uuid4())
+        outcome = "ALERT" if suspicious_motion else "NORMAL"
+        reason = (
+            "CAMERA_MOTION_OUTSIDE_HOURS_NO_VALID_ACCESS"
+            if suspicious_motion
+            else "CAMERA_EVENT_RECORDED"
+        )
+        severity = "HIGH" if suspicious_motion else "LOW"
+        alert_id = (
+            create_alert(
+                decision_id,
+                severity,
+                f"Unexpected motion detected by {event.camera_id} at {event.location}.",
+                alert_type="security",
+                location=event.location,
+                evidence_event_ids=[event.request_id],
+                dedup_key=(
+                    f"camera-motion:{canonical_location(event.location).lower()}"
+                ),
+            )
+            if suspicious_motion
+            else None
+        )
+        result = {
+            "decisionId": decision_id,
+            "requestId": event.request_id,
+            "outcome": outcome,
+            "reasonCode": reason,
+            "policyId": DETECTION_POLICY_ID,
+            "alertId": alert_id,
+            "severity": severity,
+            "alertSuppressed": suspicious_motion and alert_id is None,
+            "evaluatedAt": iso(utc_now()),
+        }
+        decisions[decision_id] = result
+        persist_decision(result)
+        publish_audit_event({"eventType": "policy.decision.created", "payload": result})
+        correlation_id = str(uuid5(NAMESPACE_URL, f"mqtt:{event.request_id}"))
+        status, deliveries = mqtt_partner_deliveries(
+            "camera-event",
+            event,
+            result,
+            correlation_id,
+        )
+        record = {
+            "status": status,
+            "topic": topic,
+            "qos": qos,
+            "mqttEventId": event.request_id,
+            "sourceService": event.source_service,
+            "receivedAt": received_at,
+            "payload": event.model_dump(mode="json"),
+            "result": result,
+            "deliveries": deliveries,
+        }
+        record_mqtt_event(record)
+        publish_audit_event({"eventType": "mqtt.camera.received", "payload": record})
+    except Exception as exc:
+        record_mqtt_event(
+            {
+                "status": "invalid",
+                "topic": topic,
+                "qos": qos,
+                "receivedAt": received_at,
+                "error": f"{exc.__class__.__name__}: {exc}",
+                "payload": payload_bytes.decode("utf-8", errors="replace"),
+            }
+        )
+
+
+def process_mqtt_message(topic: str, qos: int, payload_bytes: bytes) -> None:
+    if topic == MQTT_TOPIC:
+        process_iot_mqtt_message(topic, qos, payload_bytes)
+    elif topic == MQTT_ACCESS_TOPIC:
+        process_access_mqtt_message(topic, qos, payload_bytes)
+    elif topic == MQTT_CAMERA_TOPIC:
+        process_camera_mqtt_message(topic, qos, payload_bytes)
+    else:
+        record_mqtt_event(
+            {
+                "status": "ignored_topic",
+                "topic": topic,
+                "qos": qos,
+                "receivedAt": iso(utc_now()),
+            }
+        )
+
+
 def start_mqtt_subscriber() -> None:
     global mqtt_client
     if not MQTT_ENABLED:
@@ -636,7 +1190,8 @@ def start_mqtt_subscriber() -> None:
         global mqtt_connected
         mqtt_connected = reason_code == 0
         if mqtt_connected:
-            client.subscribe(MQTT_TOPIC, qos=MQTT_QOS)
+            for topic in {MQTT_TOPIC, MQTT_ACCESS_TOPIC, MQTT_CAMERA_TOPIC}:
+                client.subscribe(topic, qos=MQTT_QOS)
 
     def on_disconnect(
         client: mqtt.Client,
@@ -649,7 +1204,7 @@ def start_mqtt_subscriber() -> None:
         mqtt_connected = False
 
     def on_message(client: mqtt.Client, userdata: Any, message: mqtt.MQTTMessage) -> None:
-        process_iot_mqtt_message(message.topic, message.qos, message.payload)
+        process_mqtt_message(message.topic, message.qos, message.payload)
 
     client.on_connect = on_connect
     client.on_disconnect = on_disconnect
@@ -667,6 +1222,23 @@ def stop_mqtt_subscriber() -> None:
         mqtt_client.disconnect()
     mqtt_client = None
     mqtt_connected = False
+
+
+def publish_mqtt_event(topic: str, payload: dict[str, Any]) -> dict[str, Any]:
+    if not MQTT_OUTBOUND_ENABLED:
+        return {"status": "skipped", "topic": topic, "reason": "outbound_disabled"}
+    if not mqtt_client or not mqtt_connected:
+        return {"status": "unavailable", "topic": topic, "reason": "mqtt_disconnected"}
+    try:
+        info = mqtt_client.publish(topic, json.dumps(payload), qos=MQTT_QOS)
+        info.wait_for_publish(timeout=PARTNER_TIMEOUT_SECONDS)
+        return {"status": "published", "topic": topic, "qos": MQTT_QOS}
+    except (RuntimeError, ValueError, OSError) as exc:
+        return {
+            "status": "failed",
+            "topic": topic,
+            "reason": f"{exc.__class__.__name__}: {exc}",
+        }
 
 
 def deliver_to_partner(
@@ -749,6 +1321,7 @@ def deliver_integration_result(
     source_payload: BaseModel,
     result: dict[str, Any],
     correlation_id: str,
+    strict: bool = True,
 ) -> dict[str, Any]:
     analytics_payload = {
         "eventId": str(uuid4()),
@@ -761,32 +1334,52 @@ def deliver_integration_result(
             "result": result,
         },
     }
+    errors: list[ProblemError] = []
     deliveries: dict[str, Any] = {
-        "analytics": deliver_to_partner(
+        "analyticsMqtt": publish_mqtt_event(MQTT_CORE_TOPIC, analytics_payload),
+        "notification": {"provider": "notification", "status": "skipped"},
+        "notificationMqtt": {"status": "skipped", "topic": MQTT_ALERT_TOPIC},
+    }
+    try:
+        deliveries["analytics"] = deliver_to_partner(
             "analytics",
             ANALYTICS_SERVICE_URL,
             ANALYTICS_PATH,
             analytics_payload,
             correlation_id,
             ANALYTICS_AUTH_TOKEN,
-        ),
-        "notification": {"provider": "notification", "status": "skipped"},
-    }
+        )
+    except ProblemError as exc:
+        errors.append(exc)
+        deliveries["analytics"] = {
+            "provider": "analytics",
+            "status": "failed",
+            "statusCode": exc.status_code,
+            "detail": exc.detail,
+        }
 
     if result.get("alertId"):
         notification_id = str(uuid4())
         occurred_at = iso(utc_now())
         title = f"Core policy alert: {event_type}"
         message = result.get("reasonCode", "Policy alert generated.")
+        severity = str(result.get("severity", "HIGH")).upper()
+        channels_by_severity = {
+            "CRITICAL": ["telegram", "email", "app"],
+            "HIGH": ["telegram", "app"],
+            "MEDIUM": ["email"],
+            "LOW": [],
+        }
+        channels = channels_by_severity.get(severity, ["email"])
         notification_payload = {
             "eventId": notification_id,
             "notificationId": notification_id,
             "eventType": "alert.created",
             "source": "core-business-service",
             "sourceService": "team-core",
-            "channel": "MULTI",
-            "channels": ["telegram", "email", "app"],
-            "severity": "HIGH",
+            "channel": "MULTI" if len(channels) > 1 else (channels[0].upper() if channels else "LOG"),
+            "channels": channels,
+            "severity": severity,
             "alertVersion": 1,
             "title": title,
             "message": message,
@@ -806,14 +1399,30 @@ def deliver_integration_result(
                 "decisionId": result["decisionId"],
             },
         }
-        deliveries["notification"] = deliver_to_partner(
-            "notification",
-            NOTIFICATION_SERVICE_URL,
-            NOTIFICATION_PATH,
+        deliveries["notificationMqtt"] = publish_mqtt_event(
+            MQTT_ALERT_TOPIC,
             notification_payload,
-            correlation_id,
-            NOTIFICATION_AUTH_TOKEN,
         )
+        try:
+            deliveries["notification"] = deliver_to_partner(
+                "notification",
+                NOTIFICATION_SERVICE_URL,
+                NOTIFICATION_PATH,
+                notification_payload,
+                correlation_id,
+                NOTIFICATION_AUTH_TOKEN,
+            )
+        except ProblemError as exc:
+            errors.append(exc)
+            deliveries["notification"] = {
+                "provider": "notification",
+                "status": "failed",
+                "statusCode": exc.status_code,
+                "detail": exc.detail,
+            }
+
+    if strict and errors:
+        raise errors[0]
 
     return deliveries
 
@@ -892,7 +1501,8 @@ def partners_health() -> dict[str, Any]:
             "enabled": MQTT_ENABLED,
             "host": MQTT_HOST,
             "port": MQTT_PORT,
-            "topic": MQTT_TOPIC,
+            "topics": [MQTT_TOPIC, MQTT_ACCESS_TOPIC, MQTT_CAMERA_TOPIC],
+            "outboundTopics": [MQTT_ALERT_TOPIC, MQTT_CORE_TOPIC],
             "qos": MQTT_QOS,
         },
     ]
@@ -907,6 +1517,10 @@ def get_mqtt_status() -> dict[str, Any]:
         "host": MQTT_HOST,
         "port": MQTT_PORT,
         "topic": MQTT_TOPIC,
+        "topics": [MQTT_TOPIC, MQTT_ACCESS_TOPIC, MQTT_CAMERA_TOPIC],
+        "outboundTopics": [MQTT_ALERT_TOPIC, MQTT_CORE_TOPIC],
+        "outboundEnabled": MQTT_OUTBOUND_ENABLED,
+        "iotSourceService": IOT_SOURCE_SERVICE,
         "qos": MQTT_QOS,
         "receivedCount": len(mqtt_events),
     }
@@ -955,6 +1569,10 @@ def evaluate_access(
         decision = "DENY"
         reason = "POLICY_DENY_ZONE"
         explanation = f"Zone {payload.subject.zone} is not allowed."
+    elif not is_access_policy_time(payload.occurredAt):
+        decision = "DENY"
+        reason = "POLICY_DENY_OUTSIDE_ALLOWED_HOURS"
+        explanation = "Access is outside the configured 06:00-22:00 window."
     else:
         decision = "ALLOW"
         reason = "POLICY_ALLOW"
@@ -974,16 +1592,13 @@ def evaluate_access(
         else None,
         "correlationId": correlation_id or str(uuid4()),
         "explanation": explanation,
+        "alertId": None,
+        "severity": "LOW",
     }
+    apply_repeated_access_policy(payload, result)
     decisions[decision_id] = result
     persist_decision(result)
     publish_audit_event({"eventType": "policy.decision.created", "payload": result})
-    if decision == "DENY":
-        create_alert(
-            decision_id,
-            "HIGH",
-            f"{payload.cardId} denied at {payload.gateId}: {reason}",
-        )
     remember(idempotency_key, result)
     return result
 
@@ -1001,21 +1616,35 @@ def evaluate_sensor(
     if previous:
         return previous
 
-    if payload.metric == SensorMetric.SMOKE and payload.value > 0:
-        outcome, reason = "ALERT", "SENSOR_THRESHOLD_CRITICAL"
+    record_event_fact(
+        "sensor",
+        str(payload.requestId),
+        payload.deviceId,
+        payload.occurredAt,
+        payload.model_dump(mode="json"),
+    )
+
+    if payload.metric == SensorMetric.SMOKE and payload.value >= 1:
+        outcome, reason, severity = "ALERT", "SENSOR_THRESHOLD_CRITICAL", "CRITICAL"
+    elif payload.metric == SensorMetric.SMOKE and payload.value >= 0.5:
+        outcome, reason, severity = "WARNING", "SENSOR_THRESHOLD_WARNING", "MEDIUM"
     elif payload.metric == SensorMetric.TEMPERATURE and payload.value >= 40:
-        outcome, reason = "ALERT", "SENSOR_THRESHOLD_CRITICAL"
+        outcome, reason, severity = "ALERT", "SENSOR_THRESHOLD_CRITICAL", "HIGH"
     elif payload.metric == SensorMetric.TEMPERATURE and payload.value >= 35:
-        outcome, reason = "WARNING", "SENSOR_THRESHOLD_WARNING"
+        outcome, reason, severity = "WARNING", "SENSOR_THRESHOLD_WARNING", "MEDIUM"
     else:
-        outcome, reason = "NORMAL", "SENSOR_NORMAL"
+        outcome, reason, severity = "NORMAL", "SENSOR_NORMAL", "LOW"
 
     decision_id = str(uuid4())
     alert_id = (
         create_alert(
             decision_id,
-            "CRITICAL" if outcome == "ALERT" else "MEDIUM",
+            severity,
             f"{payload.metric.value} policy outcome {outcome} for {payload.deviceId}.",
+            alert_type="environment",
+            location=payload.deviceId,
+            evidence_event_ids=[str(payload.requestId)],
+            dedup_key=f"sensor:{payload.metric.value.lower()}:{payload.deviceId.lower()}",
         )
         if outcome != "NORMAL"
         else None
@@ -1027,6 +1656,8 @@ def evaluate_sensor(
         "reasonCode": reason,
         "policyId": SENSOR_POLICY_ID,
         "alertId": alert_id,
+        "severity": severity,
+        "alertSuppressed": outcome != "NORMAL" and alert_id is None,
         "evaluatedAt": iso(utc_now()),
     }
     decisions[decision_id] = result
@@ -1049,23 +1680,60 @@ def evaluate_detection(
     if previous:
         return previous
 
+    record_event_fact(
+        "vision",
+        str(payload.detectionId),
+        payload.location or payload.cameraId,
+        payload.occurredAt,
+        payload.model_dump(mode="json"),
+    )
+    recent_denials: list[dict[str, Any]] = []
+    if payload.location:
+        expected_location = canonical_location(payload.location)
+        recent_denials = [
+            fact
+            for fact in recent_event_facts(
+                "access",
+                payload.occurredAt,
+                CORRELATION_WINDOW_SECONDS,
+            )
+            if fact["location"] == expected_location
+            and fact["payload"].get("result", {}).get("decision") == "DENY"
+        ]
+
     if payload.label in {DetectionLabel.FIRE, DetectionLabel.SMOKE}:
-        outcome, reason = "ALERT", "HAZARD_DETECTED"
+        outcome, reason, severity = "ALERT", "HAZARD_DETECTED", "CRITICAL"
+    elif (
+        payload.label == DetectionLabel.UNKNOWN_PERSON
+        and payload.confidence >= 0.8
+        and recent_denials
+    ):
+        outcome, reason, severity = "ALERT", "INTRUSION_CORRELATED", "CRITICAL"
     elif payload.label == DetectionLabel.UNKNOWN_PERSON and payload.confidence >= 0.8:
-        outcome, reason = "ALERT", "UNKNOWN_PERSON_HIGH_CONFIDENCE"
+        outcome, reason, severity = "ALERT", "UNKNOWN_PERSON_HIGH_CONFIDENCE", "HIGH"
     elif payload.label == DetectionLabel.CROWD and payload.confidence >= 0.8:
-        outcome, reason = "REVIEW", "CROWD_DETECTED"
+        outcome, reason, severity = "REVIEW", "CROWD_DETECTED", "MEDIUM"
     elif payload.label == DetectionLabel.AUTHORIZED_PERSON:
-        outcome, reason = "IGNORE", "AUTHORIZED_PERSON"
+        outcome, reason, severity = "IGNORE", "AUTHORIZED_PERSON", "LOW"
     else:
-        outcome, reason = "IGNORE", "LOW_CONFIDENCE"
+        outcome, reason, severity = "IGNORE", "LOW_CONFIDENCE", "LOW"
 
     decision_id = str(uuid4())
+    evidence_event_ids = [str(payload.detectionId)] + [
+        fact["sourceEventId"] for fact in recent_denials
+    ]
     alert_id = (
         create_alert(
             decision_id,
-            "HIGH",
+            severity,
             f"{payload.label.value} detected by {payload.cameraId}.",
+            alert_type="security",
+            location=payload.location or payload.cameraId,
+            evidence_event_ids=evidence_event_ids,
+            dedup_key=(
+                f"vision:{reason}:"
+                f"{canonical_location(payload.location or payload.cameraId).lower()}"
+            ),
         )
         if outcome == "ALERT"
         else None
@@ -1077,6 +1745,11 @@ def evaluate_detection(
         "reasonCode": reason,
         "policyId": DETECTION_POLICY_ID,
         "alertId": alert_id,
+        "severity": severity,
+        "alertSuppressed": outcome == "ALERT" and alert_id is None,
+        "correlatedEvidenceEventIds": [
+            fact["sourceEventId"] for fact in recent_denials
+        ],
         "evaluatedAt": iso(utc_now()),
     }
     decisions[decision_id] = result
@@ -1127,6 +1800,7 @@ def vision_result_to_detection_request(payload: VisionResultRequest) -> Detectio
         label=label,
         confidence=confidence,
         occurredAt=datetime.fromisoformat(occurred_at) if occurred_at else utc_now(),
+        location=payload.location,
     )
 
 
