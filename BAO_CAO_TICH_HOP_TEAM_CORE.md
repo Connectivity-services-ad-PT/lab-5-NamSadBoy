@@ -503,6 +503,10 @@ Denied 3 lần trong 5 phút: REPEATED_ACCESS_DENIED, MEDIUM
 PostgreSQL hiện lưu thêm `processed_events`, `event_facts` và `alert_dedup`. Core chỉ chạy policy IoT với
 `sourceService=a1-iot-ingestion`; nguồn khác được ghi nhận nhưng không tạo cảnh báo.
 
+Ngày 24/06/2026, Core đã kết nối trực tiếp HiveMQ Cloud qua TLS port 8883 và xử lý thành công event
+`a1-iot-ingestion`. Evidence: `reports/iot-a-hivemq-live-test.json`. Credential chỉ nằm trong `.env` và không
+được commit.
+
 ## Kết luận
 
 Team Core đã hoàn thành tích hợp chính với các service liên quan:

@@ -1,0 +1,23 @@
+{
+  "testedAt": "2026-06-24T13:52:00Z",
+  "broker": {
+    "host": "f6f78e87db4a4c189dd3d706745a5e93.s1.eu.hivemq.cloud",
+    "port": 8883,
+    "tls": true,
+    "topic": "smart-campus/events/sensor",
+    "qos": 1
+  },
+  "filter": {
+    "sourceService": "a1-iot-ingestion"
+  },
+  "publishedEventId": "sensor-event-core-live-d0643a73-1f12-4bef-bfcc-ea69d39faeb2",
+  "coreResult": {
+    "status": "processed",
+    "outcome": "ALERT",
+    "reasonCode": "IOT_STATUS_DANGER",
+    "severity": "HIGH",
+    "analyticsMqtt": "published",
+    "notificationMqtt": "published"
+  },
+  "credentialsCommitted": false
+}

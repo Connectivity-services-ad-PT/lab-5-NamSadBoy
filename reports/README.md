@@ -11,6 +11,7 @@
 - `newman-buoi06-integration.xml`, `newman-buoi06-integration.html`: integration, fan-out, timeout, and recovery reports.
 - `mqtt-smoke-test.json`: local QoS 1 publish evidence for the IoT A payload.
 - `core-business-scenarios.json`: three agreed business scenarios covering environment danger, correlated intrusion, and repeated denied access.
+- `iot-a-hivemq-live-test.json`: live TLS/QoS 1 HiveMQ evidence for `sourceService=a1-iot-ingestion`; no broker credentials are stored.
 - `database-evidence.txt`: persisted decision and alert counts.
 - `audit-events.json`: internal integration events.
 - `image-tags.txt`: versioned images used by Compose.
